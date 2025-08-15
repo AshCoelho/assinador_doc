@@ -5,12 +5,9 @@
     <title>Assinatura de Documento</title>
     <link rel="shortcut icon" href="../static/img/brasao_32.ico">
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
-    <link rel="stylesheet" href="{{ url_for('static', filename='css/base.css') }}">
-    <link rel="stylesheet" href="{{ url_for('static', filename='css/assinatura.css') }}">
+    <link rel="stylesheet" href="../static/css/assinatura.css">
+    <link rel="stylesheet" href="../static/css/base.css">
     <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
-    <script>
-        pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
-    </script>
 </head>
 
     {% if show_result %}
@@ -39,7 +36,6 @@
                 <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                 <button  type="submit" class="btn btn-outline-danger btn-sm">Sair</button>
                 </form>
-        
         </div>
     </nav>
 <div class="container my-5">
@@ -80,7 +76,12 @@
         </div>
         <div class="mb-3">
             <label class="form-label">Nome do Órgão:</label>
-            <input name="orgao" required type="text" value="Secretaria Municipal de Informação e Tecnologia - SEMIT" class="form-control">
+            <select class="form-select" aria-label="Default select example">
+                <option selected>Escolha o Orgão/Secretaria</option>
+                <option value="1">Secretaria Municipal de Informação e Tecnologia - SEMIT</option>
+                <option value="2">Secretaria Municipal de Administração - SEMAD</option>
+                <option value="3">Secretaria Municipal da Saúde - SEMUS</option>
+            </select>
         </div>
         <div class="mb-3">
             <label class="form-label">Setor:</label>
@@ -94,9 +95,6 @@
             <label class="form-label">Número do Processo:</label>
             <input name="processo" required type="text" class="form-control">
         </div>
-
-        
-
 
         <!-- Campos ocultos -->
         <input id="x" name="x" type="hidden"/>
@@ -151,7 +149,7 @@
     const assinaturaPdf = document.getElementById("assinaturaPDF");
     const container = document.getElementById("canvasContainer");
 
-    // Controles (se não existirem, caem como null e tudo bem)
+    // Controles (se não existirem, caem como null)
     const chkCenterH = document.getElementById("centerH");
     const chkCenterV = document.getElementById("centerV");
     const btnCenterNow = document.getElementById("centerNow");

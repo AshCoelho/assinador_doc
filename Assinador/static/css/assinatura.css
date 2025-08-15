@@ -20,7 +20,6 @@
   margin-right: 1rem;
 }
 
-
 /* Área de visualização */
 #canvasContainer{
   position:relative;
@@ -73,3 +72,63 @@ canvas{display:block;max-width:none}
 .center-bar .btn{display:flex;align-items:center;gap:.4rem}
 
 
+/* >= 1400px (xl+) */
+@media (max-width:1400px){
+  
+  #canvasContainer{min-height:520px;padding:14px;}
+  .pdf-frame{height:80vh}
+}
+
+/* >= 1200px */
+@media (max-width:1200px){
+  #canvasContainer{min-height:480px}
+}
+
+/* >= 992px */
+@media (max-width:992px){
+  
+  .app-title{font-size:1.8rem}
+  #canvasContainer{min-height:440px}
+}
+
+.usuario {
+  margin-right: 0.5rem;}
+
+/* >= 768px */
+@media (max-width:768px){
+  #canvasContainer{min-height:400px}
+}
+
+/* <= 767px (tablets/phones) */
+@media (max-width:767.98px){
+  .app-header{flex-direction:column;align-items:flex-start;gap:.5rem;}
+  .app-title{font-size:1.45rem}
+  .app-title img{width:40px;height:40px}
+  .text-end,.text-end-1{width:100%;justify-content:space-between}
+  #canvasContainer{min-height:360px;padding:8px}
+  /* reduzir carimbo para caber melhor */
+  #assinaturaImagem{width:200px;height:185px}
+  #assinaturaPDF{width:180px;height:180px}
+  .pdf-frame{height:66vh}
+}
+
+/* <= 576px (phones pequenos) */
+@media (max-width:575.98px){
+  .app-title{font-size:1.3rem}
+  .usuario{font-size:.95rem}
+  .center-bar .btn{font-size:.92rem;padding:.45rem .65rem}
+  #canvasContainer{min-height:320px}
+  #assinaturaImagem{width:180px;height:165px}
+  #assinaturaPDF{width:170px;height:170px}
+  .pdf-frame{height:60vh}
+
+}
+
+/* <= 400px (muito pequeno) */
+@media (max-width:400px){
+  .app-title img{width:36px;height:36px;}
+  .center-bar{gap:.4rem}
+  .center-bar .btn{font-size:.88rem;padding:.4rem .6rem}
+  #assinaturaImagem{width:160px;height:150px}
+  #assinaturaPDF{width:150px;height:150px}
+}
