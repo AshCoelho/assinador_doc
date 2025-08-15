@@ -1,0 +1,63 @@
+/* Container do cartão de login */
+.login-wrap{
+  height:100vh;display:flex;justify-content:center;align-items:center;
+  background: #f5f4f4;
+}
+.login-card{
+  width:100%;max-width:400px;padding:30px;
+  border-radius:12px; height: 100%; max-height: 520px;
+  background:#fff;box-shadow:var(--shadow);
+}
+.form-control:focus{box-shadow:0 0 0 .1rem rgba(64, 175, 250, 0.336);}
+
+.linha-texto {
+  display: flex;align-items: center;text-align: center;margin: 20px 0;
+}
+
+.linha-texto::before,
+.linha-texto::after {
+  content: "";
+  flex: 1;
+  border-bottom: 1px solid #ddd;  /* cor da linha */
+}
+
+.linha-texto:not(:empty)::before {
+  margin-right: 0.75em;
+}
+
+.linha-texto:not(:empty)::after {
+  margin-left: 0.75em;
+}
+
+.linha-texto span {
+  font-weight: 400;
+  color: #666; /* cor do texto */
+}
+
+/* Quando o campo estiver em foco */
+.input-group:focus {
+    outline: none;               /* remove a borda azul padrão */
+    border: 2px solid #1e90ff;   /* azul */
+    box-shadow: 0 0 5px #1e90ff; /* brilho azul opcional */
+}
+
+/* Quando o campo for válido (HTML5 validation) */
+.input-group:valid {
+    border: 2px solid #28a745; /* verde */
+}
+
+/* Quando o campo for inválido */
+.input-group:invalid {
+    border: 2px solid #dc3545; /* vermelho */
+}
+
+.input-group .btn {
+  border-color: var(--bs-border-color);   /* mesma cor usada pelo input */
+}
+
+.input-group .btn:focus,
+.input-group .btn:hover {
+  border-color: var(--bs-border-color);   /* mantém igual no hover/focus */
+  box-shadow: none;                       /* remove o glow azul */
+}
+

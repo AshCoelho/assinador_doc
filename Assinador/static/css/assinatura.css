@@ -1,0 +1,75 @@
+/* Header / Branding */
+
+.app-header{
+  display:flex;align-items:center;justify-content:center; width: 100%;
+  margin-top:2rem;margin-bottom:0.5rem;
+}
+.app-title{
+  display:flex;align-items:center;
+  font-size:1.6rem;font-weight:700;color:var(--brand);
+}
+
+.text-end {
+  display: flex;width: 100%; justify-content: space-between; align-items: center; margin-left: 0px;
+}
+.text-end-1 {
+  display: flex;width: 100%; justify-content: end; align-items: center;
+}
+
+.usuario {
+  margin-right: 1rem;
+}
+
+
+/* Área de visualização */
+#canvasContainer{
+  position:relative;
+  background:#fff;
+  border-radius:8px;
+  border:2px dashed #ccc;
+  min-height:400px;
+  overflow:auto;
+  margin-bottom:10px;
+}
+canvas{display:block;max-width:none}
+
+/* Retângulo (carimbo) */
+.retangulo{
+  position:absolute;
+  border:1px dashed #474f52;
+  border-radius:5px;
+  background:rgba(252,253,255,.95);
+  box-shadow:0px 4px 18px 0px rgba(38,136,228,.65);
+  cursor:move; user-select:none;
+}
+.retangulo .stamp-content{
+  pointer-events:none;
+  display:flex;flex-direction:column;justify-content:center;align-items:center;
+  height:100%;padding:10px 12px;text-align:center;color:#3b3b3b;line-height:1.25;font-size:12px;
+}
+.retangulo .stamp-title{font-weight:700;color:#2b2b2b;margin-bottom:4px;font-size:13px;}
+.retangulo .stamp-sub{opacity:.95;font-size:12px;}
+
+/* Tamanhos padrão */
+#assinaturaImagem{ width:240px; height:220px; max-width: 100%;
+
+}
+#assinaturaPDF{ width:200px; height:200px; max-width: 100%;
+  
+}
+
+/* Resultado */
+.viewer{
+  border:1px solid var(--border);
+  border-radius:10px;
+  background:#fff;
+  padding:8px;margin-top:16px;
+}
+.pdf-frame{width:100%;height:75vh;border:none;border-radius:8px}
+.img-preview{max-width:100%;height:auto;border-radius:8px;display:block;margin:0 auto}
+
+/* Botões centralizar */
+.center-bar{display:flex;flex-wrap:wrap;gap:.5rem;margin-bottom:.75rem}
+.center-bar .btn{display:flex;align-items:center;gap:.4rem}
+
+

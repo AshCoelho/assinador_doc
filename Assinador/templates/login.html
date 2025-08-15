@@ -1,0 +1,140 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <title>Login | Assinador Digital</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.css" rel="stylesheet">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/base.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/login.css') }}">
+
+</head>
+<body>
+    <div class="login-wrap">
+    <div class="login-card">
+        <div class="text-center mb-4">
+            <img src="../static/img/logo-sao-luis.png" alt="logo-saoluis" width="36px">
+            
+            <h3 class="text-dark">Login</h3>
+            <p class="text-muted mb-0">Acesse para assinar seus documentos</p>
+        </div>
+        <form method="POST" action="{{ url_for('auth.login') }}" autocomplete="on">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+
+        <div class="mb-3">
+            <label for="email" class="form-label">E-mail:</label>
+            <div class="input-group">
+            <span class="input-group-text">📧</span>
+            <input type="email"
+                    class="form-control"
+                    id="email"
+                    name="email"
+                    placeholder="exemplo@dominio.com"
+                    required
+                    autocomplete="email">
+            </div>
+        </div>
+
+        <div class="mb-3">
+    <label for="cpf" class="form-label">CPF:</label>
+    <div class="input-group">
+        <span class="input-group-text">🪪</span>
+        <input type="password"
+                class="form-control"
+                id="cpf"
+                name="cpf"
+                inputmode="numeric"
+                pattern="\d{11}"
+                placeholder="Apenas números"
+                required
+                autocomplete="current-password">
+        <button class="btn btn-outline-secondary" type="button" id="toggleCpf">
+            <!-- Ícone olho aberto (inicial) -->
+            <i class="bi bi-eye-fill"></i>
+            </button>
+        </div>
+    </div>
+
+
+        <button type="submit" class="btn btn-primary w-100">Entrar</button>
+        </form>
+        <div class="linha-texto">
+            <span>ou</span>
+        </div>
+        <div class="text-center mt-4">
+            <a href="/verificar" class="btn btn-outline-secondary w-100">🔍 Verificar Autenticidade</a>
+        </div>
+        </div>
+    </div>
+    
+    <div aria-live="polite" aria-atomic="true" class="position-relative">
+        <div class="toast-container position-fixed top-0 end-0 p-2">
+            {% with msgs = get_flashed_messages(with_categories=True) %}
+            {% if msgs %}
+                {% for cat, msg in msgs %}
+                <div class="toast custom-toast {{ toast_class_for(cat) }}" role="alert" aria-live="assertive" aria-atomic="true">
+                <div class="d-flex">
+                    <div class="toast-body">
+                    <i class="bi {{ toast_icon_for(cat) }}"></i>
+                    {{ msg }}
+                    </div>
+                    
+                </div>
+                </div>
+                {% endfor %}
+            {% endif %}
+            {% endwith %}
+        </div>
+    </div>
+</div>
+        
+    <script>
+        function pedirSenha() {
+            const senha = prompt("🔐 Acesso restrito: digite a senha de administrador para continuar com o cadastro:");
+            if (senha === "123") {
+                window.location.href = "{{ url_for('cadastro') }}";
+            } else if (senha !== null) {
+                alert("❌ Senha incorreta. Acesso negado.");
+            }
+        }
+
+        document.getElementById("toggleCpf").addEventListener("click", function() {
+            const cpfInput = document.getElementById("cpf");
+            const btn = this;
+
+            if (cpfInput.type === "password") {
+                cpfInput.type = "text";
+                btn.innerHTML = `
+                <i class="bi bi-eye-slash-fill"></i>
+                `;
+            } else {
+                cpfInput.type = "password";
+                btn.innerHTML = `
+                <i class="bi bi-eye-fill"></i>
+                `;
+            }
+        });
+
+        
+        document.addEventListener("DOMContentLoaded", function(){
+            var toastElList = [].slice.call(document.querySelectorAll('.toast'))
+            toastElList.map(function (toastEl) {
+                var t = new bootstrap.Toast(toastEl, { delay: 4000 });
+                t.show();
+            });
+});
+
+
+        document.addEventListener("DOMContentLoaded", function () {
+        document.querySelectorAll('.toast').forEach(function(el){
+            new bootstrap.Toast(el, { delay: 4000 }).show();
+        });
+        });
+
+    </script>
+
+</body>
+</html>

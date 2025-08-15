@@ -1,0 +1,55 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+  <meta charset="utf-8"/>
+  <title>Documento Assinado</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+  <style>
+    body { background:#f4f9ff; font-family: 'Segoe UI', sans-serif; }
+    .viewer {
+      border: 1px solid #e5e7eb; border-radius: 10px; background: #fff;
+      padding: 8px; margin-top: 16px;
+    }
+    .pdf-frame { width: 100%; height: 80vh; border: none; border-radius: 8px; }
+    .img-preview { max-width: 100%; height: auto; border-radius: 8px; display:block; margin:0 auto; }
+  </style>
+</head>
+<body>
+<div class="container my-5">
+  <div class="d-flex justify-content-between align-items-center mb-3">
+    <h2 class="text-primary m-0">✅ Documento assinado com sucesso</h2>
+    <div class="text-end">
+      <span class="text-muted">Usuário: <strong>{{ nome }}</strong> — {{ cpf }}</span>
+    </div>
+  </div>
+
+  <div class="card shadow-sm">
+    <div class="card-body">
+      <div class="d-flex flex-wrap gap-2">
+        <a class="btn btn-primary" href="{{ signed_url }}" target="_blank">👁️ Ver no navegador</a>
+
+        <a class="btn btn-success" href="{{ url_for('download', filename=arquivo) }}" target="_blank">⬇ Baixar</a>
+
+        <a class="btn btn-secondary" href="{{ url_for('assinar') }}">✍️ Assinar outro</a>
+        <a href="{{ url_for('auth.login') }}" class="btn btn-secondary ms-2">🔙 Voltar ao Início</a>
+
+      </div>
+
+      <div class="viewer">
+        {% if is_pdf %}
+          <!-- Pré-visualização de PDF -->
+          <iframe class="pdf-frame" src="{{ signed_url }}#toolbar=1&view=FitH"></iframe>
+        {% else %}
+          <!-- Pré-visualização de Imagem -->
+          <img class="img-preview" src="{{ signed_url }}" alt="Documento assinado">
+        {% endif %}
+      </div>
+
+      <p class="text-muted mt-3 mb-0">
+        Dica: se o navegador abrir o PDF em guia nova, use o botão “Baixar” acima para salvar o arquivo.
+      </p>
+    </div>
+  </div>
+</div>
+</body>
+</html>
