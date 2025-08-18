@@ -1,0 +1,96 @@
+Como subir aplicação
+
+1) Acesse o diretório da aplicação:
+cd "C:\Users\ashla\OneDrive\Desktop\assinador_excluir\Assinador"
+
+2) No PowerShell, rode:
+$env:DATABASE_URL = "postgresql+psycopg://assinador_user:Assinador123!@localhost:5432/assinador"
+
+3) Por fim, rode a aplicação:
+py app.py
+
+
+
+
+
+Iniciar Configuração do ambiente e conecção com banco
+
+Configurar ambiente (Windows – PowerShell), abra o PowerShell e vá até a pasta do projeto:
+cd "C:\Users\ashla\OneDrive\Desktop\assinador_excluir\Assinador"
+
+1) (Recomendado) Criar venv:
+py -m venv .venv
+.\.venv\Scripts\Activate.ps1
+
+Se aparecer erro de política de execução (afeta apenas a janela do PowerShell):
+Set-ExecutionPolicy -Scope Process -ExecutionPolicy Bypass
+.\.venv\Scripts\Activate.ps1
+
+2) Instalar dependências
+pip install Flask Flask-SQLAlchemy "psycopg[binary]" PyMuPDF Pillow qrcode
+
+3) Variáveis de ambiente:
+$env:DATABASE_URL = "postgresql+psycopg://postgres:postgres@localhost:5432/assinador"
+$env:SECRET_KEY   = "S3m1t!@#"
+
+Quando você criar um usuário dedicado, troque a URL por ele:
+$env:DATABASE_URL = "postgresql+psycopg://assinador_user:Assinador123!@localhost:5432/assinador"
+
+4) Banco de dados (PostgreSQL)
+4.1) Abrir o psql, se o psql não estiver no PATH, use o caminho completo (ajuste a versão/pasta):
+& "C:\Program Files\PostgreSQL\15\bin\psql.exe" -h localhost -U postgres -W
+4.2) Criar DB/usuário e permissões, no spsql:
+CREATE DATABASE assinador;
+CREATE USER assinador_user WITH ENCRYPTED PASSWORD 'Assinador123!';
+GRANT ALL PRIVILEGES ON DATABASE assinador TO assinador_user;
+
+\c assinador
+-- (opcional) extensões úteis:
+CREATE EXTENSION IF NOT EXISTS citext;
+
+-- Permissões no schema public:
+GRANT ALL ON SCHEMA public TO assinador_user;
+ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT ALL ON TABLES TO assinador_user;
+ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT ALL ON SEQUENCES TO assinador_user;
+
+Criar o primeiro usuário admin, usando a função register_user que já existe ainda dentro do venv e na pasta do projeto:
+py
+from app import app
+from auth import register_user
+with app.app_context():
+    u = register_user(
+        nome="Administrador",
+        email="admin@teste.com",
+        cpf="12345678901",   # 11 dígitos (sem pontuação)
+        is_admin=True
+    )
+    print("OK:", u.email, u.is_admin)
+
+Saia do Python (exit()).
+
+Rodar a aplicação
+py app.py
+
+5) Dicas rápidas / resolução de problemas
+- psycopg não encontrado:
+pip install "psycopg[binary]"
+
+- Erro de permissão no schema public (p.ex. “permission denied for schema public”):
+Rode, conectado ao DB assinador:
+GRANT ALL ON SCHEMA public TO assinador_user;
+ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT ALL ON TABLES TO assinador_user;
+ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT ALL ON SEQUENCES TO assinador_user;
+
+- Arquivo pesado no Git (uploads) aparecendo no git status:
+Crie/ajuste .gitignore:
+static/arquivos/uploads/
+static/arquivos/assinados/
+
+- Se já estiverem versionados, remova do índice:
+git rm -r --cached static/arquivos/uploads static/arquivos/assinados
+git commit -m "stop tracking generated files"
+
+
+
+
+

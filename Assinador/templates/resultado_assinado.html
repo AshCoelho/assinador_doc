@@ -44,6 +44,11 @@
           <img class="img-preview" src="{{ signed_url }}" alt="Documento assinado">
         {% endif %}
       </div>
+      {% if sha256_hex %}
+        <p class="text-muted mt-2">
+          SHA-256 (arquivo assinado): <code>{{ sha256_hex }}</code>
+        </p>
+      {% endif %}
 
       <p class="text-muted mt-3 mb-0">
         Dica: se o navegador abrir o PDF em guia nova, use o botão “Baixar” acima para salvar o arquivo.

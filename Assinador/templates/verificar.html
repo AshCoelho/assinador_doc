@@ -1,40 +1,82 @@
 <!DOCTYPE html>
 <html lang="pt-br">
 <head>
-    <meta charset="UTF-8">
-    <title>Verificar Autenticidade</title>
-    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css">
-<link rel="stylesheet" href="{{ url_for('static', filename='css/base.css') }}">
-
+  <meta charset="utf-8">
+  <title>Verificar documento</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
 </head>
-<body class="bg-light">
-    <div class="container mt-5">
-        <div class="card shadow p-4">
-            <h3 class="mb-4">🔍 Verificar Documento por CRC</h3>
-            <form method="POST" class="mb-3">
-                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-                <div class="mb-3">
-                    <label for="crc" class="form-label">Digite o CRC:</label>
-                    <input type="text" class="form-control" id="crc" name="crc" required>
-                </div>
-                <div class="d-flex">
-                    <button type="submit" class="btn btn-success">✅ Verificar</button>
-                    <a href="{{ url_for('auth.login') }}" class="btn btn-secondary ms-2">🔙 Voltar ao Login</a>
+<body class="container py-4">
 
-                </div>
-            </form>
+  <h3 class="mb-3">Verificação de Documento</h3>
 
-            {% if caminho %}
-                <div class="alert alert-success mt-3" role="alert">
-                    ✅ Documento encontrado!
-                </div>
-                <a href="{{ caminho }}" target="_blank" class="btn btn-primary">📄 Abrir Documento</a>
-            {% elif erro %}
-                <div class="alert alert-danger mt-3" role="alert">
-                    ❌ {{ erro }}
-                </div>
-            {% endif %}
+  <!-- Bloco: Buscar por CRC (sempre visível) -->
+  <div class="card mb-3">
+    <div class="card-body">
+      <form method="GET" class="row g-2 align-items-center">
+        <div class="col-auto">
+          <label for="crc" class="col-form-label fw-semibold">Código CRC:</label>
         </div>
+        <div class="col-md-4">
+          <input type="text" id="crc" name="crc" class="form-control" placeholder="ex.: a1b2c3d4e5"
+                 value="{{ crc or '' }}" required>
+        </div>
+        <div class="col-auto">
+          <button class="btn btn-primary" type="submit">Buscar</button>
+        </div>
+        <div class="form-text">
+          Dica: o QR do selo abre esta página já com <code>?crc=...</code>.
+        </div>
+      </form>
     </div>
+  </div>
+
+  {% if erro %}
+    <div class="alert alert-danger mt-3">{{ erro }}</div>
+  {% endif %}
+
+  {% if caminho %}
+    <!-- Resultado da busca pelo CRC -->
+    <div class="card mb-3">
+      <div class="card-body">
+        <div class="d-flex flex-wrap gap-2">
+          <a class="btn btn-primary" href="{{ caminho }}" target="_blank">Ver cópia oficial</a>
+        </div>
+        {% if canonical_sha256 %}
+          <p class="mt-3 mb-0">
+            SHA-256 (cópia oficial): <code>{{ canonical_sha256 }}</code>
+          </p>
+        {% endif %}
+      </div>
+    </div>
+
+    <!-- Comparar um arquivo recebido -->
+    <div class="card">
+      <div class="card-body">
+        <h5 class="card-title">Validar um arquivo que você recebeu</h5>
+        <form method="POST" enctype="multipart/form-data" class="mt-2">
+          <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+          <input type="hidden" name="crc" value="{{ crc }}">
+          <div class="mb-2">
+            <input type="file" name="arquivo" class="form-control" required>
+          </div>
+          <button class="btn btn-success" type="submit">Comparar com a cópia oficial</button>
+        </form>
+
+        {% if match is not none %}
+          {% if match %}
+            <div class="alert alert-success mt-3">✔ Arquivo íntegro: coincide com a cópia oficial.</div>
+          {% else %}
+            <div class="alert alert-danger mt-3">✖ Arquivo ALTERADO: não coincide com a cópia oficial.</div>
+          {% endif %}
+        {% endif %}
+      </div>
+    </div>
+  {% else %}
+    <!-- Mensagem amigável quando ainda não há resultado -->
+    {% if not erro %}
+      <p class="text-muted mt-3">Cole o CRC acima e clique em <b>Buscar</b> para exibir a cópia oficial e validar um arquivo.</p>
+    {% endif %}
+  {% endif %}
+
 </body>
 </html>
