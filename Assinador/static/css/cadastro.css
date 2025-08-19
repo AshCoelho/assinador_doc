@@ -1,3 +1,156 @@
-.table thead th{white-space:nowrap}
-.table td, .table th{vertical-align:middle}
-.badge-role{font-weight:500}
+/* ---------- Variáveis (modo claro) ---------- */
+:root{
+  --bg: #f5f6f8;
+  --card-bg: #ffffff;
+  --text: #1f2937;
+  --muted: #6b7280;
+  --line: #e5e7eb;
+  --field-bg: #f8fafc;
+  --focus: rgba(13,110,253,.16);
+  --focus-border: rgba(13,110,253,.5);
+  --shadow-lg: 0 20px 50px rgba(0,0,0,.08);
+}
+
+body, .bg-surface{
+  background: var(--bg);
+  color: var(--text);
+  font-family: "Inter", system-ui, -apple-system, Segoe UI, Roboto, "Helvetica Neue", Arial, sans-serif;
+}
+
+/* Fundo com leves acentos */
+.bg-surface{
+  background:
+    radial-gradient(900px 400px at 10% -20%, rgba(13,110,253,.08), transparent 60%),
+    radial-gradient(600px 500px at 110% 20%, rgba(25,135,84,.06), transparent 55%),
+    var(--bg);
+}
+
+/* ---------- Cabeçalho ---------- */
+.page-header{
+  gap: .75rem;
+}
+.page-header .vr{
+  height: 24px;
+}
+
+/* ---------- Cards ---------- */
+.card-elev{
+  border: 0;
+  background: var(--card-bg);
+  box-shadow: var(--shadow-lg);
+  border-radius: 14px;
+}
+
+/* ---------- Títulos de seção ---------- */
+.section-title{
+  font-weight: 600;
+  margin-bottom: 1rem;
+  color: var(--text);
+  display: inline-flex;
+  align-items: center;
+  gap: .5rem;
+}
+
+/* ---------- Inputs com ícone (lado ESQ) ---------- */
+.has-icon .input-group-text{
+    font-size: 1rem;
+  background: var(--field-bg);
+  border-right: 0;
+  color: var(--text);
+}
+.has-icon .form-control{
+    font-size: 1rem;
+  border-left: 0;
+  color: var(--text);
+  background: #fff;
+}
+
+/* Foco visível nos grupos */
+.input-group:focus-within .input-group-text,
+.input-group:focus-within .form-control{
+  border-color: var(--focus-border) !important;
+  box-shadow: 0 0 0 .15rem var(--focus) !important;
+}
+
+/* ---------- Busca com ícone (lado DIR) ---------- */
+.search-wrap{
+  position: relative;
+  min-width: 240px;
+}
+.search-wrap .form-control{
+  padding-right: 2.2rem; /* espaço pro ícone à direita */
+}
+.search-wrap .bi-search{
+  position: absolute;
+  right: .6rem;
+  top: 50%;
+  transform: translateY(-50%);
+  color: var(--muted);
+  pointer-events: none;
+  font-size: 1rem;
+}
+
+/* ---------- Tabela com cabeçalho fixo ---------- */
+.table-wrapper{
+  max-height: 60vh;         /* rolagem vertical elegante */
+  overflow: auto;
+  border-radius: 10px;
+  border: 1px solid var(--line);
+}
+.table{
+  margin-bottom: 0;
+}
+.table thead.table-head{
+  background: var(--card-bg);
+  box-shadow: 0 1px 0 var(--line);
+  position: sticky;
+  top: 0;
+  z-index: 2;
+}
+.table thead th{
+  font-weight: 600;
+  color: var(--muted);
+  white-space: nowrap;
+}
+.table tbody td{
+  vertical-align: middle;
+}
+.table-hover tbody tr:hover{
+  background: rgba(13,110,253,.06);
+}
+
+/* Larguras mínimas para evitar quebra */
+.min-w-180{ min-width: 180px; }
+.min-w-220{ min-width: 220px; }
+.min-w-160{ min-width: 160px; }
+.min-w-150{ min-width: 150px; }
+.min-w-140{ min-width: 140px; }
+
+/* ---------- Botões de ação ---------- */
+.btn-group .btn{
+  display: inline-flex;
+  align-items: center;
+  gap: .35rem;
+}
+
+/* ---------- Validação Bootstrap mais visível ---------- */
+.was-validated .form-control:invalid,
+.form-control.is-invalid{
+  border-color: #dc3545 !important;
+  box-shadow: 0 0 0 .15rem rgba(220,53,69,.15) !important;
+}
+
+/* ---------- Responsividade ---------- */
+@media (max-width: 575.98px){
+  .search-wrap{ min-width: 100%; }
+  .section-title{ margin-bottom: .75rem; }
+  .table-wrapper{ max-height: 55vh; }
+}
+
+
+@media (max-width: 375.98px){
+  .search-wrap{ min-width: 100%; }
+  .section-title{ margin-bottom: .75rem; }
+  .table-wrapper{ max-height: 55vh; }
+  
+}

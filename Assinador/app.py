@@ -8,8 +8,10 @@ from flask import (
 )
 from werkzeug.utils import secure_filename
 import qrcode
+from qrcode.constants import ERROR_CORRECT_Q, ERROR_CORRECT_H
 from PIL import Image, ImageDraw, ImageFont
 import fitz  # PyMuPDF
+
 # ORM
 from models import db, User
 
@@ -64,6 +66,34 @@ def sha256_of_file(path: str) -> str:
         for chunk in iter(lambda: f.read(8192), b''):
             h.update(chunk)
     return h.hexdigest()
+
+# --------- Helpers para QR ---------
+def build_verification_url(crc: str) -> str:
+    """
+    Constrói uma URL absoluta acessível pelo celular.
+    - Se PUBLIC_BASE_URL estiver setada (ex.: https://seu-dominio.gov.br), usa ela.
+    - Senão, usa o host da requisição atual (_external=True).
+    """
+    base = os.environ.get("PUBLIC_BASE_URL")
+    if base:
+        return f"{base.rstrip('/')}{url_for('verificar', crc=crc)}"
+    return url_for('verificar', crc=crc, _external=True)
+
+def make_qr_image(data: str, box_size: int = 6, border: int = 4, strong: bool = True):
+    """
+    Gera QR nítido (sem borrar), já pequeno (50x50).
+    """
+    qr = qrcode.QRCode(
+        version=None,
+        error_correction=ERROR_CORRECT_H if strong else ERROR_CORRECT_Q,
+        box_size=box_size,
+        border=border,
+    )
+    qr.add_data(data)
+    qr.make(fit=True)
+    img = qr.make_image(fill_color="black", back_color="white").convert("RGB")
+    # garante exatamente 50x50 sem borrão
+    return img.resize((50, 50), resample=Image.NEAREST)
 
 @app.context_processor
 def toast_utils():
@@ -221,12 +251,12 @@ def assinar():
     os.makedirs('static/arquivos/assinados', exist_ok=True)
     caminho_assinado = os.path.join("static/arquivos/assinados", nome_final)
 
-    # QR + brasão
-    qr_url = f"http://127.0.0.1:5000/verificar?crc={crc}"  # troque pelo seu domínio público em produção
-    qr_img = qrcode.make(qr_url).resize((50, 50))
+    # ---------- QR + brasão (QR pequeno + URL pública) ----------
+    qr_url = build_verification_url(crc)
+    qr_img = make_qr_image(qr_url, box_size=6, border=4, strong=True)  # 50x50 final
     qr_path = f"static/temp_qr_{crc}.png"
-    qr_img.save(qr_path)
-    brasao_path = "static/brasao/brasao.png"
+    qr_img.save(qr_path, format="PNG")
+    brasao_path = "static/brasao/brasao.png"  # <<< importante (usado abaixo)
 
     # Texto do carimbo
     linhas = [
@@ -268,16 +298,37 @@ def assinar():
                 ponto_y = max(0, int((pdf_h - ponto_h) / 2))
 
             # Moldura (debug visual — remova se não quiser)
-            page.draw_rect(fitz.Rect(ponto_x, ponto_y, ponto_x + ponto_w, ponto_y + ponto_h),
-                           color=(1, 0, 0), width=1)
+            page.draw_rect(
+                fitz.Rect(ponto_x, ponto_y, ponto_x + ponto_w, ponto_y + ponto_h),
+                color=(1, 0, 0), width=1
+            )
 
-            # Ícones
-            x_icones = ponto_x + int((ponto_w - 110) / 2)
-            page.insert_image(fitz.Rect(x_icones, ponto_y + 10, x_icones + 50, ponto_y + 60), filename=qr_path)
-            page.insert_image(fitz.Rect(x_icones + 60, ponto_y + 10, x_icones + 110, ponto_y + 60), filename=brasao_path)
+            # ----- ÍCONES pequenos lado a lado (QR 50x50; brasão 35x50) -----
+            qr_w = 50
+            qr_h = 50
+            brasao_w = 35
+            brasao_h = 50
+            gap_pt = 6
 
-            # Texto
-            inicio_y_texto = ponto_y + 70
+            total_icons_w = qr_w + gap_pt + brasao_w
+            x_icones = ponto_x + int((ponto_w - total_icons_w) / 2)
+            y_icones = ponto_y + 10
+
+            # QR (50x50)
+            page.insert_image(
+                fitz.Rect(x_icones, y_icones, x_icones + qr_w, y_icones + qr_h),
+                filename=qr_path
+            )
+
+            # Brasão (35x50)
+            page.insert_image(
+                fitz.Rect(x_icones + qr_w + gap_pt, y_icones,
+                          x_icones + qr_w + gap_pt + brasao_w, y_icones + brasao_h),
+                filename=brasao_path
+            )
+
+            # ----- Texto logo abaixo dos ícones -----
+            inicio_y_texto = y_icones + max(qr_h, brasao_h) + 8
             font_size_normal = 9
             font_size_status = 14
             espaco_entre_linhas = 12
@@ -304,13 +355,13 @@ def assinar():
                 inicio_y_texto += espacamento_extra
 
             # Salva o PDF com a página escolhida assinada (as demais ficam intactas)
-            doc.save(canho_assinado := caminho_assinado)
+            doc.save(caminho_assinado)
             doc.close()
             if os.path.exists(qr_path):
                 os.remove(qr_path)
 
-            # NOVO: calcula o SHA-256 do arquivo final assinado
-            sha256_hex = sha256_of_file(canho_assinado)
+            # SHA-256 do arquivo final assinado
+            sha256_hex = sha256_of_file(caminho_assinado)
 
             signed_url = f"/static/arquivos/assinados/{nome_final}"
             return render_template(
@@ -325,7 +376,6 @@ def assinar():
 
             draw = ImageDraw.Draw(imagem)
             fonte = ImageFont.truetype("static/fonts/DejaVuSans.ttf", size=12)
-            brasao = Image.open(brasao_path).resize((35, 50)).convert("RGBA")
 
             escala_x = largura_real / max(canvas_w, 1)
             escala_y = altura_real / max(canvas_h, 1)
@@ -343,14 +393,19 @@ def assinar():
             # Moldura (debug)
             draw.rectangle([x_real, y_real, x_real + w_real, y_real + h_real], outline="red", width=2)
 
-            # Ícones
-            x_icones = x_real + int((w_real - 110) / 2)
-            qr_rgba = qrcode.make(qr_url).resize((50, 50)).convert("RGBA")
-            imagem.paste(qr_rgba, (x_icones, y_real + 10), qr_rgba)
-            imagem.paste(brasao, (x_icones + 60, y_real + 5), brasao)
+            # Ícones pequenos lado a lado (QR 50x50 + brasão 35x50)
+            qr_rgba = Image.open(qr_path).convert("RGBA")  # já 50x50
+            brasao = Image.open(brasao_path).resize((35, 50)).convert("RGBA")
+            gap_px = 6
+            total_icons_w = qr_rgba.width + gap_px + brasao.width
+            x_icones = x_real + int((w_real - total_icons_w) / 2)
+            y_icones = y_real + 10
+
+            imagem.paste(qr_rgba, (x_icones, y_icones), qr_rgba)
+            imagem.paste(brasao, (x_icones + qr_rgba.width + gap_px, y_icones), brasao)
 
             # Texto
-            y_texto = y_real + 60
+            y_texto = y_icones + max(qr_rgba.height, brasao.height) + 8
             for linha in linhas:
                 if not linha.strip():
                     y_texto += fonte.size + 6
@@ -370,12 +425,12 @@ def assinar():
                     draw.text((x_render, y_texto), sub, font=fonte, fill=(0, 0, 0))
                     y_texto += (bbox[3] - bbox[1]) + 2
 
-            imagem.save(canho_assinado := caminho_assinado)
+            imagem.save(caminho_assinado)
             if os.path.exists(qr_path):
                 os.remove(qr_path)
 
-            # NOVO: calcula o SHA-256 do arquivo final assinado
-            sha256_hex = sha256_of_file(canho_assinado)
+            # SHA-256 do arquivo final assinado
+            sha256_hex = sha256_of_file(caminho_assinado)
 
             signed_url = f"/static/arquivos/assinados/{nome_final}"
             return render_template(
@@ -407,8 +462,8 @@ def verificar():
     canonical_sha256 = None
     match = None  # True/False/None
 
-    # Identifica o arquivo oficial pelo CRC (como já fazia)
-    crc = (request.values.get("crc") or "").strip()  # pega de GET ou POST
+    # Identifica o arquivo oficial pelo CRC
+    crc = (request.values.get("crc") or "").strip()  # GET ou POST
     if crc:
         pasta = 'static/arquivos/assinados'
         try:
@@ -436,12 +491,14 @@ def verificar():
                 user_sha256 = hashlib.sha256(data).hexdigest()
                 match = (user_sha256 == canonical_sha256)
 
-    return render_template('verificar.html',
+    return render_template(
+        'verificar.html',
         caminho=caminho,
         erro=erro,
         canonical_sha256=canonical_sha256,
         match=match,
-        crc=crc)
+        crc=crc
+    )
 
 
 # ---------- Download seguro ----------
