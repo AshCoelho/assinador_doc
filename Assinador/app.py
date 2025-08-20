@@ -45,6 +45,8 @@ app.permanent_session_lifetime = timedelta(minutes=30)
 # Blueprint de autenticação
 app.register_blueprint(auth_bp)
 
+
+# ---------- Filtros/Utils ----------
 def fmt_dt(value):
     if not value:
         return ""
@@ -59,7 +61,7 @@ def fmt_dt(value):
 
 app.jinja_env.filters["fmt_dt"] = fmt_dt
 
-# --------- Utilitário de hash (SHA-256 do arquivo) ---------
+
 def sha256_of_file(path: str) -> str:
     h = hashlib.sha256()
     with open(path, 'rb') as f:
@@ -67,21 +69,22 @@ def sha256_of_file(path: str) -> str:
             h.update(chunk)
     return h.hexdigest()
 
-# --------- Helpers para QR ---------
+
 def build_verification_url(crc: str) -> str:
     """
-    Constrói uma URL absoluta acessível pelo celular.
-    - Se PUBLIC_BASE_URL estiver setada (ex.: https://seu-dominio.gov.br), usa ela.
-    - Senão, usa o host da requisição atual (_external=True).
+    Constrói URL absoluta para o QR.
+    Se PUBLIC_BASE_URL estiver setada (ex.: https://seu-dominio.gov.br), usa-a.
+    Senão, usa o host da requisição atual (_external=True).
     """
     base = os.environ.get("PUBLIC_BASE_URL")
     if base:
         return f"{base.rstrip('/')}{url_for('verificar', crc=crc)}"
     return url_for('verificar', crc=crc, _external=True)
 
+
 def make_qr_image(data: str, box_size: int = 6, border: int = 4, strong: bool = True):
     """
-    Gera QR nítido (sem borrar), já pequeno (50x50).
+    Gera QR nítido (sem borrão), já no tamanho final 50x50.
     """
     qr = qrcode.QRCode(
         version=None,
@@ -92,8 +95,8 @@ def make_qr_image(data: str, box_size: int = 6, border: int = 4, strong: bool = 
     qr.add_data(data)
     qr.make(fit=True)
     img = qr.make_image(fill_color="black", back_color="white").convert("RGB")
-    # garante exatamente 50x50 sem borrão
     return img.resize((50, 50), resample=Image.NEAREST)
+
 
 @app.context_processor
 def toast_utils():
@@ -140,6 +143,7 @@ def cadastro():
             usuario_editar=usuario_editar.to_dict() if usuario_editar else None
         )
 
+    # POST
     if not validate_csrf_from_form():
         flash("Sessão expirada ou solicitação inválida (CSRF).", "danger")
         return redirect(url_for("cadastro"))
@@ -196,6 +200,7 @@ def assinar():
     if request.method == "GET":
         return render_template("assinar.html", nome=nome, cpf=cpf_masked)
 
+    # POST
     if not validate_csrf_from_form():
         return render_template("assinar.html", nome=nome, cpf=cpf_masked, erro="❌ CSRF inválido. Recarregue a página.")
 
@@ -211,26 +216,25 @@ def assinar():
     status = request.form.get('status', '')
     processo = request.form.get('processo', '')
 
-    # Coordenadas e canvas
-    try:
-        x = float(request.form.get('x') or 0)
-        y = float(request.form.get('y') or 0)
-        w = float(request.form.get('w') or 0)
-        h = float(request.form.get('h') or 0)
-        canvas_w = float(request.form.get('canvas_w') or 1)
-        canvas_h = float(request.form.get('canvas_h') or 1)
-    except Exception:
-        return render_template("assinar.html", nome=nome, cpf=cpf_masked, erro="❌ Coordenadas inválidas.")
+    # Coordenadas e canvas (o front envia relativas ao canvas real)
+    def _float(val, default=0.0):
+        try:
+            return float(val)
+        except Exception:
+            return default
 
-    # Página (para PDF)
+    x = _float(request.form.get('x'))
+    y = _float(request.form.get('y'))
+    w = _float(request.form.get('w'))
+    h = _float(request.form.get('h'))
+    canvas_w = _float(request.form.get('canvas_w'), 1.0)
+    canvas_h = _float(request.form.get('canvas_h'), 1.0)
+
+    # Página (para PDF) — robusto
     try:
         page_num = int(request.form.get('page') or 1)
-    except ValueError:
+    except Exception:
         page_num = 1
-
-    # (Se no futuro você for reativar checkboxes de centralização:)
-    center_h = (request.form.get('center_h') in ('on', 'true', '1'))
-    center_v = (request.form.get('center_v') in ('on', 'true', '1'))
 
     # Upload
     nome_arquivo = secure_filename(arquivo.filename)
@@ -241,7 +245,7 @@ def assinar():
     caminho_upload = os.path.join('static/arquivos/uploads', nome_arquivo)
     arquivo.save(caminho_upload)
 
-    # CRC (curto) e saída
+    # CRC curto baseado no arquivo original (para URL/consulta)
     hash_crc = hashlib.sha256()
     with open(caminho_upload, 'rb') as f:
         hash_crc.update(f.read())
@@ -251,12 +255,12 @@ def assinar():
     os.makedirs('static/arquivos/assinados', exist_ok=True)
     caminho_assinado = os.path.join("static/arquivos/assinados", nome_final)
 
-    # ---------- QR + brasão (QR pequeno + URL pública) ----------
+    # QR + brasão (QR pequeno 50x50 e brasão 35x50)
     qr_url = build_verification_url(crc)
     qr_img = make_qr_image(qr_url, box_size=6, border=4, strong=True)  # 50x50 final
     qr_path = f"static/temp_qr_{crc}.png"
     qr_img.save(qr_path, format="PNG")
-    brasao_path = "static/brasao/brasao.png"  # <<< importante (usado abaixo)
+    brasao_path = "static/brasao/brasao.png"
 
     # Texto do carimbo
     linhas = [
@@ -274,36 +278,38 @@ def assinar():
         if extensao == '.pdf':
             doc = fitz.open(caminho_upload)
 
-            # Garante que page_num fique no intervalo válido (1..N)
+            # Garantir página válida
             total = doc.page_count
-            if page_num < 1: page_num = 1
-            if page_num > total: page_num = total
+            if page_num < 1:
+                page_num = 1
+            if page_num > total:
+                page_num = total
 
-            page = doc[page_num - 1]  # assina apenas esta página
+            page = doc.load_page(page_num - 1)
 
             pdf_w = page.rect.width
             pdf_h = page.rect.height
 
-            escala_x = pdf_w / max(canvas_w, 1)
-            escala_y = pdf_h / max(canvas_h, 1)
+            # Salvaguarda: se canvas_w/h vierem 0 (por alguma razão), evita divisão por zero
+            if canvas_w <= 0: canvas_w = pdf_w
+            if canvas_h <= 0: canvas_h = pdf_h
+
+            # Escalas: do canvas (frontend) para a página real do PDF
+            escala_x = pdf_w / canvas_w
+            escala_y = pdf_h / canvas_h
 
             ponto_x = int(x * escala_x)
             ponto_y = int(y * escala_y)
-            ponto_w = int(max(w, 1) * escala_x)
-            ponto_h = int(max(h, 1) * escala_y)
+            ponto_w = max(1, int(w * escala_x))
+            ponto_h = max(1, int(h * escala_y))
 
-            if center_h:
-                ponto_x = max(0, int((pdf_w - ponto_w) / 2))
-            if center_v:
-                ponto_y = max(0, int((pdf_h - ponto_h) / 2))
-
-            # Moldura (debug visual — remova se não quiser)
+            # --- Moldura (debug) — comente se não quiser no PDF final ---
             page.draw_rect(
                 fitz.Rect(ponto_x, ponto_y, ponto_x + ponto_w, ponto_y + ponto_h),
                 color=(1, 0, 0), width=1
             )
 
-            # ----- ÍCONES pequenos lado a lado (QR 50x50; brasão 35x50) -----
+            # Ícones pequenos lado a lado
             qr_w = 50
             qr_h = 50
             brasao_w = 35
@@ -314,20 +320,20 @@ def assinar():
             x_icones = ponto_x + int((ponto_w - total_icons_w) / 2)
             y_icones = ponto_y + 10
 
-            # QR (50x50)
+            # QR 50x50
             page.insert_image(
                 fitz.Rect(x_icones, y_icones, x_icones + qr_w, y_icones + qr_h),
                 filename=qr_path
             )
 
-            # Brasão (35x50)
+            # Brasão 35x50
             page.insert_image(
                 fitz.Rect(x_icones + qr_w + gap_pt, y_icones,
                           x_icones + qr_w + gap_pt + brasao_w, y_icones + brasao_h),
                 filename=brasao_path
             )
 
-            # ----- Texto logo abaixo dos ícones -----
+            # Texto logo abaixo
             inicio_y_texto = y_icones + max(qr_h, brasao_h) + 8
             font_size_normal = 9
             font_size_status = 14
@@ -337,7 +343,7 @@ def assinar():
                 if not linha.strip():
                     inicio_y_texto += 5
                     continue
-                if linha.strip() == status:
+                if status and linha.strip() == status.strip():
                     largura_status = fitz.get_text_length(linha, fontname="helv", fontsize=font_size_status)
                     x_central = ponto_x + (ponto_w - largura_status) / 2
                     page.insert_text((x_central, inicio_y_texto), linha,
@@ -354,7 +360,7 @@ def assinar():
                     inicio_y_texto += espaco_entre_linhas
                 inicio_y_texto += espacamento_extra
 
-            # Salva o PDF com a página escolhida assinada (as demais ficam intactas)
+            # Salva
             doc.save(caminho_assinado)
             doc.close()
             if os.path.exists(qr_path):
@@ -374,27 +380,32 @@ def assinar():
             imagem = Image.open(caminho_upload).convert('RGB')
             largura_real, altura_real = imagem.size
 
-            draw = ImageDraw.Draw(imagem)
-            fonte = ImageFont.truetype("static/fonts/DejaVuSans.ttf", size=12)
+            # Salvaguarda: se canvas_w/h vierem 0
+            if canvas_w <= 0: canvas_w = largura_real
+            if canvas_h <= 0: canvas_h = altura_real
 
-            escala_x = largura_real / max(canvas_w, 1)
-            escala_y = altura_real / max(canvas_h, 1)
+            draw = ImageDraw.Draw(imagem)
+            try:
+                fonte = ImageFont.truetype("static/fonts/DejaVuSans.ttf", size=12)
+                fonte_b = ImageFont.truetype("static/fonts/DejaVuSans-Bold.ttf", size=18)
+            except Exception:
+                fonte = ImageFont.load_default()
+                fonte_b = ImageFont.load_default()
+
+            # Escalas: do canvas (frontend) para a imagem real
+            escala_x = largura_real / canvas_w
+            escala_y = altura_real / canvas_h
 
             x_real = int(x * escala_x)
             y_real = int(y * escala_y)
-            w_real = int(max(w, 1) * escala_x)
-            h_real = int(max(h, 1) * escala_y)
-
-            if center_h:
-                x_real = max(0, int((largura_real - w_real) / 2))
-            if center_v:
-                y_real = max(0, int((altura_real - h_real) / 2))
+            w_real = max(1, int(w * escala_x))
+            h_real = max(1, int(h * escala_y))
 
             # Moldura (debug)
             draw.rectangle([x_real, y_real, x_real + w_real, y_real + h_real], outline="red", width=2)
 
-            # Ícones pequenos lado a lado (QR 50x50 + brasão 35x50)
-            qr_rgba = Image.open(qr_path).convert("RGBA")  # já 50x50
+            # Ícones pequenos lado a lado
+            qr_rgba = Image.open(qr_path).convert("RGBA")  # 50x50
             brasao = Image.open(brasao_path).resize((35, 50)).convert("RGBA")
             gap_px = 6
             total_icons_w = qr_rgba.width + gap_px + brasao.width
@@ -410,12 +421,11 @@ def assinar():
                 if not linha.strip():
                     y_texto += fonte.size + 6
                     continue
-                if linha.strip() == status:
-                    fonte_status = ImageFont.truetype("static/fonts/DejaVuSans-Bold.ttf", size=18)
-                    bbox = fonte_status.getbbox(linha)
+                if status and linha.strip() == status.strip():
+                    bbox = fonte_b.getbbox(linha)
                     largura_status = bbox[2] - bbox[0]
                     x_render = x_real + (w_real - largura_status) // 2
-                    draw.text((x_render, y_texto), linha, font=fonte_status, fill=(0, 0, 0))
+                    draw.text((x_render, y_texto), linha, font=fonte_b, fill=(0, 0, 0))
                     y_texto += (bbox[3] - bbox[1]) + 8
                     continue
                 for sub in textwrap.wrap(linha, width=40):

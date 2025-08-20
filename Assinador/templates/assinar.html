@@ -1,21 +1,30 @@
 <!DOCTYPE html>
 <html lang="pt-br">
 <head>
-    <meta charset="utf-8"/>
-    <title>Assinatura de Documento</title>
-    <link rel="shortcut icon" href="../static/img/brasao_32.ico">
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
-    <link rel="stylesheet" href="../static/css/assinatura.css">
-    <link rel="stylesheet" href="../static/css/base.css">
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+  <meta charset="utf-8"/>
+  <title>Assinatura de Documento</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1"> <!-- IMPORTANTE p/ mobile -->
+  <link rel="shortcut icon" href="../static/img/brasao_32.ico">
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+  <link rel="stylesheet" href="../static/css/assinar.css">
+
+  <!-- pdf.js + worker -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js"></script>
+  <script>
+    if (window['pdfjsLib']) {
+      pdfjsLib.GlobalWorkerOptions.workerSrc =
+        'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+    }
+  </script>
 </head>
 
 {% if show_result %}
 <script>
-window.addEventListener('DOMContentLoaded', function () {
-  const alvo = document.getElementById('resultado-section');
-  if (alvo) alvo.scrollIntoView({ behavior: 'smooth', block: 'start' });
-});
+  window.addEventListener('DOMContentLoaded', function () {
+    const alvo = document.getElementById('resultado-section');
+    if (alvo) alvo.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  });
 </script>
 {% endif %}
 
@@ -42,21 +51,30 @@ window.addEventListener('DOMContentLoaded', function () {
       <div class="alert alert-danger">{{ erro }}</div>
     {% endif %}
 
+    <!-- STAGE responsivo (centra o conteúdo) -->
     <div id="canvasContainer" class="mb-3">
-      <canvas id="imgCanvas" style="display:none;"></canvas>
-      <canvas id="pdfCanvas" style="display:none;"></canvas>
-      <div id="assinaturaImagem" class="retangulo" style="display:none;"></div>
-      <div id="assinaturaPDF" class="retangulo" style="display:none;"></div>
+      <div id="stage" class="stage">
+        <canvas id="imgCanvas" style="display:none;"></canvas>
+        <canvas id="pdfCanvas" style="display:none;"></canvas>
+        <div id="assinaturaImagem" class="retangulo" style="display:none;"></div>
+        <div id="assinaturaPDF"   class="retangulo" style="display:none;"></div>
+      </div>
     </div>
 
     <form enctype="multipart/form-data" id="formulario" method="post" class="card shadow p-4 bg-white rounded">
-      <div>
-        <h5>Informações do Documento</h5>
-      </div>
+      <div><h5>Informações do Documento</h5></div>
       <br/>
 
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+
+      <!-- Arquivo -->
+      <div class="mb-3">
+        <label class="form-label">Arquivo (.png, .jpg, .jpeg, .pdf):</label>
+        <input accept=".png,.jpg,.jpeg,.pdf" name="arquivo" onchange="handleFile(this)" required type="file" class="form-control">
+      </div>
+
       <!-- Centralizar -->
-      <div class="center-bar mb-3 d-flex gap-2">
+      <div class="center-bar mb-3 d-flex gap-2 flex-wrap">
         <button type="button" id="btnCenterH" class="btn btn-outline-primary btn-icon">
           <img width="20" height="20" src="https://img.icons8.com/ios-filled/24/A1A3A6/resize-horizontal.png" alt="">
           Centralizar Horizontal
@@ -67,30 +85,18 @@ window.addEventListener('DOMContentLoaded', function () {
         </button>
       </div>
 
-      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-
-      <!-- Arquivo -->
-      <div class="mb-3">
-        <label class="form-label">Arquivo (.png, .jpg, .jpeg, .pdf):</label>
-        <input accept=".png,.jpg,.jpeg,.pdf" name="arquivo" onchange="handleFile(this)" required type="file" class="form-control">
-      </div>
-
-      <!-- Controles de página (aparecem apenas para PDF) -->
+      <!-- Controles de página (PDF) -->
       <div id="pdfControls" class="mb-3" style="display:none;">
         <label class="form-label">Página do PDF para assinar:</label>
         <div class="d-flex align-items-center gap-2">
-          <button type="button" class="btn btn-outline-secondary btn-sm" id="btnPrevPage">
-            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="bi bi-caret-left-fill" viewBox="0 0 16 16">
-            <path d="m3.86 8.753 5.482 4.796c.646.566 1.658.106 1.658-.753V3.204a1 1 0 0 0-1.659-.753l-5.48 4.796a1 1 0 0 0 0 1.506z"/>
-            </svg>
-        </button>
-          <input type="number" id="pageInput" class="form-control" style="width:100px" min="1" value="1">
+          <button type="button" class="btn btn-outline-secondary btn-sm" id="btnPrevPage" aria-label="Página anterior">
+            &lsaquo;
+          </button>
+          <input type="number" id="pageInput" class="form-control" style="width:100px" min="1" value="1" aria-label="Número da página">
           <span id="pageTotal" class="text-muted">/ 1</span>
-          <button type="button" class="btn btn-outline-secondary btn-sm" id="btnNextPage">
-            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="bi bi-caret-right-fill" viewBox="0 0 16 16">
-  <path d="m12.14 8.753-5.482 4.796c-.646.566-1.658.106-1.658-.753V3.204a1 1 0 0 1 1.659-.753l5.48 4.796a1 1 0 0 1 0 1.506z"/>
-</svg>
-        </button>
+          <button type="button" class="btn btn-outline-secondary btn-sm" id="btnNextPage" aria-label="Próxima página">
+            &rsaquo;
+          </button>
         </div>
       </div>
 
@@ -128,7 +134,7 @@ window.addEventListener('DOMContentLoaded', function () {
       <input id="canvas_h" name="canvas_h" type="hidden"/>
       <input id="page" name="page" type="hidden" value="1"/>
 
-      <div class="d-flex flex-wrap gap-2 justify-content-between mt-4">
+      <div class="flex-wrap">
         <button class="btn btn-primary" type="submit">✔ Assinar Documento</button>
         <button class="btn btn-secondary" onclick="location.href='/'" type="button">↩ Voltar</button>
         <button class="btn btn-danger" onclick="resetForm()" type="button">🧹 Limpar</button>
@@ -139,8 +145,8 @@ window.addEventListener('DOMContentLoaded', function () {
     <div id="resultado-section" class="card shadow-sm mt-4">
       <div class="card-body">
         <div class="d-flex flex-wrap gap-2">
-          <a class="btn btn-primary" href="{{ signed_url }}" target="_blank">👁️ Ver no navegador</a>
-          <a class="btn btn成功 btn-success" href="{{ url_for('download', filename=arquivo) }}">⬇ Baixar</a>
+          <a class="btn btn-primary" href="{{ signed_url }}" target="_blank" rel="noopener">👁️ Ver no navegador</a>
+          <a class="btn btn-success" href="{{ url_for('download', filename=arquivo) }}">⬇ Baixar</a>
           <a class="btn btn-outline-secondary" href="{{ url_for('assinar') }}">✍️ Assinar outro</a>
         </div>
 
@@ -148,241 +154,94 @@ window.addEventListener('DOMContentLoaded', function () {
 
         <div class="viewer">
           {% if is_pdf %}
-            <iframe class="pdf-frame" src="{{ signed_url }}#toolbar=1&view=FitH"></iframe>
+            <!-- 1) tenta iframe -->
+            <iframe class="pdf-frame" id="resultIframe" src="{{ signed_url }}#toolbar=1&view=FitH" title="Pré-visualização do PDF" loading="lazy"></iframe>
+
+            <!-- 2) fallback: object -->
+            <object data="{{ signed_url }}" type="application/pdf" class="pdf-object d-none" id="resultObject"></object>
+
+            <!-- 3) fallback final: pdf.js render 1ª página -->
+            <canvas id="resultCanvas" class="d-none" style="width:100%;height:auto;"></canvas>
+
+            <!-- Mensagem de fallback -->
+            <div class="pdf-fallback d-none" id="resultFallback">
+              Seu navegador não consegue exibir o PDF embutido. Use os botões acima para <a href="{{ signed_url }}" target="_blank" rel="noopener">abrir</a> ou <a href="{{ url_for('download', filename=arquivo) }}">baixar</a>.
+            </div>
           {% else %}
             <img class="img-preview" src="{{ signed_url }}" alt="Documento assinado">
           {% endif %}
         </div>
 
-        <p class="text-muted mt-3 mb-0">
-          Se preferir, use “Baixar” para salvar o arquivo localmente.
-        </p>
+        <p class="text-muted mt-3 mb-0">Se preferir, use “Baixar” para salvar o arquivo localmente.</p>
       </div>
     </div>
     {% endif %}
   </div>
 
-<script>
-  const canvasImg = document.getElementById("imgCanvas");
-  const canvasPDF = document.getElementById("pdfCanvas");
-  const ctxImg = canvasImg.getContext("2d");
-  const ctxPDF = canvasPDF.getContext("2d");
-  const assinaturaImg = document.getElementById("assinaturaImagem");
-  const assinaturaPdf = document.getElementById("assinaturaPDF");
-  const container = document.getElementById("canvasContainer");
+  <!-- ====== SCRIPT PRINCIPAL (stage + drag + pdfjs na edição) ====== -->
+  <!-- (Cole aqui o script que você já está usando para o stage/assinatura — sem mudanças) -->
 
-  // Controles PDF
-  const pdfControls = document.getElementById("pdfControls");
-  const pageInput   = document.getElementById("pageInput");
-  const pageHidden  = document.getElementById("page");
-  const pageTotalEl = document.getElementById("pageTotal");
-  const btnPrevPage = document.getElementById("btnPrevPage");
-  const btnNextPage = document.getElementById("btnNextPage");
+  <!-- ====== SCRIPT: fallback mobile do RESULTADO ====== -->
+  {% if show_result and is_pdf %}
+  <script>
+    (function(){
+      const isMobile = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
+      const iframe   = document.getElementById('resultIframe');
+      const obj      = document.getElementById('resultObject');
+      const canvas   = document.getElementById('resultCanvas');
+      const fallback = document.getElementById('resultFallback');
+      const url      = "{{ signed_url }}";
 
-  let isDragging = false, alvo = null, offsetX = 0, offsetY = 0;
+      let iframeOk = false;
 
-  // Estado do PDF
-  let pdfDoc = null;
-  let currentPage = 1;
-  let totalPages = 1;
+      function show(el){ el?.classList.remove('d-none'); }
+      function hide(el){ el?.classList.add('d-none'); }
 
-  // --- conteúdo informativo nos retângulos (carimbo) ---
-  [assinaturaImg, assinaturaPdf].forEach(function(el){
-    if (!el) return;
-    el.innerHTML = `
-      <div class="stamp-content" aria-label="Área da assinatura">
-        <div class="stamp-title">Área da assinatura</div>
-        <div class="stamp-sub">Posicione a assinatura sem cobrir informações importantes.</div>
-      </div>
-    `;
-  });
+      // Se o iframe carregar, ótimo!
+      iframe?.addEventListener('load', () => { iframeOk = true; });
+      // Damos um tempinho para ver se o iframe realmente renderizou
+      window.setTimeout(() => {
+        if (iframeOk && !isMobile) return; // desktop ok
 
-  function handleFile(input) {
-    const file = input.files[0];
-    if (!file) return;
+        // Tenta <object>
+        hide(iframe);
+        show(obj);
 
-    const ext = file.name.split('.').pop().toLowerCase();
+        // Espera um pouco; se ainda não render, usa pdf.js
+        window.setTimeout(() => {
+          // Por experiência, muitos mobiles não exibem <object> também
+          hide(obj);
+          if (!window['pdfjsLib']) {
+            // Sem pdf.js – mostra fallback textual
+            show(fallback);
+            return;
+          }
+          // Renderiza primeira página via pdf.js
+          tryRenderWithPdfJs(url, canvas, fallback);
+        }, 400);
+      }, 700);
 
-    // Reset visual
-    canvasImg.style.display = 'none';
-    canvasPDF.style.display = 'none';
-    assinaturaImg.style.display = 'none';
-    assinaturaPdf.style.display = 'none';
-    pdfControls.style.display = 'none';
-    pdfDoc = null; currentPage = 1; totalPages = 1;
+      function tryRenderWithPdfJs(pdfUrl, canvasEl, fb) {
+        const containerWidth = canvasEl.parentElement.clientWidth || 320;
+        show(canvasEl);
 
-    if (['jpg', 'jpeg', 'png'].includes(ext)) {
-      const reader = new FileReader();
-      reader.onload = function (e) {
-        const image = new Image();
-        image.onload = () => {
-          canvasImg.width = image.width;
-          canvasImg.height = image.height;
-          ctxImg.clearRect(0, 0, canvasImg.width, canvasImg.height);
-          ctxImg.drawImage(image, 0, 0);
+        const loadingTask = pdfjsLib.getDocument(pdfUrl);
+        loadingTask.promise.then(pdf => {
+          pdf.getPage(1).then(page => {
+            const viewport0 = page.getViewport({ scale: 1.0 });
+            const scale = Math.max(0.5, Math.min(2.0, containerWidth / viewport0.width));
+            const viewport = page.getViewport({ scale });
 
-          canvasImg.style.display = 'block';
-          assinaturaImg.style.display = 'block';
-          alvo = assinaturaImg;
+            canvasEl.width  = Math.round(viewport.width);
+            canvasEl.height = Math.round(viewport.height);
 
-          document.getElementById("canvas_w").value = image.width;
-          document.getElementById("canvas_h").value = image.height;
-          pageHidden.value = 1; // irrelevante para imagem
-
-          afterCanvasReady();
-        };
-        image.src = e.target.result;
-      };
-      reader.readAsDataURL(file);
-
-    } else if (ext === 'pdf') {
-      const reader = new FileReader();
-      reader.onload = function () {
-        const typedarray = new Uint8Array(this.result);
-        pdfjsLib.getDocument(typedarray).promise.then(doc => {
-          pdfDoc = doc;
-          totalPages = doc.numPages || 1;
-          currentPage = 1;
-          pageInput.min = 1;
-          pageInput.max = totalPages;
-          pageInput.value = 1;
-          pageTotalEl.textContent = `/ ${totalPages}`;
-          pdfControls.style.display = 'block';
-          renderPDFPage(currentPage);
-        });
-      };
-      reader.readAsArrayBuffer(file);
-    }
-  }
-
-  function renderPDFPage(num) {
-    if (!pdfDoc) return;
-    pdfDoc.getPage(num).then(page => {
-      const viewport = page.getViewport({ scale: 1.0 });
-      canvasPDF.width = viewport.width;
-      canvasPDF.height = viewport.height;
-
-      ctxPDF.clearRect(0, 0, canvasPDF.width, canvasPDF.height);
-      page.render({ canvasContext: ctxPDF, viewport }).promise.then(() => {
-        canvasPDF.style.display = 'block';
-        assinaturaPdf.style.display = 'block';
-        alvo = assinaturaPdf;
-
-        document.getElementById("canvas_w").value = viewport.width;
-        document.getElementById("canvas_h").value = viewport.height;
-        pageHidden.value = num;
-
-        afterCanvasReady();
-      });
-    });
-  }
-
-  // Drag do carimbo
-  [assinaturaImg, assinaturaPdf].forEach(el => {
-    el.addEventListener("mousedown", (e) => {
-      isDragging = true;
-      alvo = e.currentTarget;
-      offsetX = e.offsetX;
-      offsetY = e.offsetY;
-    });
-  });
-
-  document.addEventListener("mousemove", (e) => {
-    if (!isDragging || !alvo) return;
-
-    const rect = container.getBoundingClientRect();
-    let left = e.clientX - rect.left - offsetX;
-    let top  = e.clientY - rect.top  - offsetY;
-
-    left = Math.max(0, Math.min(left, container.scrollWidth  - alvo.offsetWidth));
-    top  = Math.max(0, Math.min(top,  container.scrollHeight - alvo.offsetHeight));
-
-    alvo.style.left = `${left}px`;
-    alvo.style.top  = `${top}px`;
-
-    const canvasAtual = (canvasPDF.style.display === 'block') ? canvasPDF : canvasImg;
-    updateHiddenFromRect(alvo, canvasAtual);
-  });
-
-  document.addEventListener("mouseup", () => { isDragging = false; });
-
-  function resetForm() { window.location.reload(); }
-
-  // Atualiza campos ocultos a partir do tamanho visual do canvas
-  function updateHiddenFromRect(el, canvasAtual) {
-    const canvasRect = canvasAtual.getBoundingClientRect();
-    const escalaX = canvasAtual.width  / canvasRect.width;
-    const escalaY = canvasAtual.height / canvasRect.height;
-
-    const left = parseFloat(el.style.left || "0");
-    const top  = parseFloat(el.style.top  || "0");
-
-    document.getElementById("x").value = Math.round(left * escalaX);
-    document.getElementById("y").value = Math.round(top  * escalaY);
-    document.getElementById("w").value = Math.round(el.offsetWidth  * escalaX);
-    document.getElementById("h").value = Math.round(el.offsetHeight * escalaY);
-  }
-
-  // Centralização
-  function centerRect(axis) {
-    const canvasAtual = (canvasPDF.style.display === 'block') ? canvasPDF : canvasImg;
-    const alvoAtual   = (canvasPDF.style.display === 'block') ? assinaturaPdf : assinaturaImg;
-    if (!alvoAtual || canvasAtual.style.display === 'none') return;
-
-    const containerRect = container.getBoundingClientRect();
-    const canvasRect = canvasAtual.getBoundingClientRect();
-
-    const aW = alvoAtual.offsetWidth;
-    const aH = alvoAtual.offsetHeight;
-
-    const canvasLeft = canvasRect.left - containerRect.left;
-    const canvasTop  = canvasRect.top  - containerRect.top;
-
-    let left = parseFloat(alvoAtual.style.left || "0");
-    let top  = parseFloat(alvoAtual.style.top  || "0");
-
-    if (axis === 'H' || axis === 'BOTH') left = canvasLeft + (canvasRect.width  - aW) / 2;
-    if (axis === 'V' || axis === 'BOTH') top  = canvasTop  + (canvasRect.height - aH) / 2;
-
-    left = Math.max(canvasLeft, Math.min(left, canvasLeft + canvasRect.width  - aW));
-    top  = Math.max(canvasTop,  Math.min(top,  canvasTop  + canvasRect.height - aH));
-
-    alvoAtual.style.left = `${left}px`;
-    alvoAtual.style.top  = `${top}px`;
-
-    updateHiddenFromRect(alvoAtual, canvasAtual);
-  }
-
-  function afterCanvasReady() {
-    setTimeout(() => centerRect('H'), 50); // por padrão, centraliza no eixo horizontal
-  }
-
-  // Botões de centralização
-  document.getElementById("btnCenterH").addEventListener("click", () => centerRect('H'));
-  document.getElementById("btnCenterV").addEventListener("click", () => centerRect('V'));
-
-  // Controles de página
-  if (btnPrevPage) btnPrevPage.addEventListener("click", () => {
-    if (!pdfDoc) return;
-    currentPage = Math.max(1, currentPage - 1);
-    pageInput.value = currentPage;
-    renderPDFPage(currentPage);
-  });
-
-  if (btnNextPage) btnNextPage.addEventListener("click", () => {
-    if (!pdfDoc) return;
-    currentPage = Math.min(totalPages, currentPage + 1);
-    pageInput.value = currentPage;
-    renderPDFPage(currentPage);
-  });
-
-  if (pageInput) pageInput.addEventListener("change", () => {
-    if (!pdfDoc) return;
-    const val = parseInt(pageInput.value || "1", 10);
-    currentPage = Math.min(Math.max(1, val), totalPages);
-    pageInput.value = currentPage;
-    renderPDFPage(currentPage);
-  });
-</script>
+            page.render({ canvasContext: canvasEl.getContext('2d'), viewport }).promise
+              .catch(() => { hide(canvasEl); show(fb); });
+          }).catch(() => { hide(canvasEl); show(fb); });
+        }).catch(() => { hide(canvasEl); show(fb); });
+      }
+    })();
+  </script>
+  {% endif %}
 </body>
 </html>

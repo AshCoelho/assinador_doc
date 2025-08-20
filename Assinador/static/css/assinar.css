@@ -1,0 +1,90 @@
+:root{
+  --brand:#0d6efd;
+  --border:rgba(0,0,0,.12);
+  --surface:#fff;
+  --muted:#6c757d;
+  --shadow:0 1px 2px rgba(0,0,0,.06), 0 6px 24px rgba(0,0,0,.06);
+}
+
+/* Header */
+.app-header{display:flex;align-items:center;justify-content:center;width:100%;margin-top:1.5rem;margin-bottom:.5rem}
+.app-title{display:flex;align-items:center;gap:.5rem;font-weight:700;color:var(--brand);font-size:clamp(1.2rem,2.2vw,1.6rem)}
+.text-end,.text-end-1{display:flex;width:100%;justify-content:space-between;align-items:center}
+.text-end-1{justify-content:flex-end}
+.usuario{margin-right:.75rem;font-size:clamp(.95rem,1.6vw,1rem)}
+
+/* Área de visualização – realmente fluida */
+#canvasContainer{
+  position:relative;
+  background:#f8f9fa;
+  border:1px dashed var(--border);
+  border-radius:.75rem;
+  padding:8px;
+  min-height: clamp(240px, 50vh, 70vh);
+  max-height: 82vh;
+  overflow:auto;
+}
+
+/* Canvas centralizado e escalável mantendo proporção */
+#canvasContainer canvas{
+  display:none;               /* o JS mostra o ativo */
+  width:100% !important;      /* força preencher horizontalmente no mobile */
+  height:auto !important;
+  margin:0 auto;
+  background:#fff;
+  box-shadow:0 1px 2px rgba(0,0,0,.03);
+}
+
+/* Carimbo (posição/tamanho definidos por ratio via JS) */
+.retangulo{
+  touch-action: none;
+  position:absolute;
+  border:2px dashed var(--brand);
+  border-radius:.5rem;
+  background:rgba(13,110,253,.08);
+  box-shadow:0 4px 18px rgba(38,136,228,.2);
+  cursor:move; user-select:none;
+  display:none;
+  min-width:96px;             /* pisos para telas muito pequenas */
+  min-height:72px;
+  touch-action:none;          /* previne scroll durante o drag por toque */
+  -webkit-tap-highlight-color: transparent;
+}
+
+.retangulo .stamp-content{
+  pointer-events:none;
+  display:flex;flex-direction:column;justify-content:center;align-items:center;
+  height:100%;padding:.5rem .75rem;text-align:center;color:#0d6efd;
+  line-height:1.25;font-size:clamp(.75rem,1.5vw,.95rem);
+}
+.retangulo .stamp-title{font-weight:700;margin-bottom:.25rem;color:#0948c5}
+
+/* Resultado */
+.viewer{border:1px solid var(--border);border-radius:10px;background:#fff;padding:8px;margin-top:16px}
+.pdf-frame{width:100%;height:clamp(56vh,70vh,82vh);border:none;border-radius:8px}
+.img-preview{max-width:100%;height:auto;border-radius:8px;display:block;margin:0 auto}
+
+/* Barra de centralização */
+.center-bar{display:flex;flex-wrap:wrap;gap:.5rem;margin-bottom:.75rem}
+.center-bar .btn{display:flex;align-items:center;gap:.5rem; justify-content: space-between;}
+.flex-wrap{display:flex;flex-wrap: wrap; font-size:.95rem;width: 100%;max-width: 500px; justify-content: space-between; }
+
+/* Responsivo */
+@media (max-width:992px){
+  .app-header{flex-direction:column;align-items:flex-start;gap:.5rem}
+  .app-title img{width:40px;height:40px}
+  
+}
+
+@media (max-width:575.98px){
+  #canvasContainer{min-height: clamp(220px, 55vh, 65vh); padding:6px}
+  .center-bar .btn{display:flex;flex-wrap: wrap; font-size:.95rem;padding:.45rem .65rem;width: 100%;max-width: 500px; justify-content: center;}
+  .flex-wrap{display:flex;flex-wrap: wrap; font-size:.95rem;width: 100%;max-width: 500px; justify-content: space-between; }
+}
+
+@media (max-width:505.98px){
+  #canvasContainer{min-height: clamp(220px, 55vh, 65vh); padding:6px}
+  .center-bar .btn{display:flex;flex-wrap: wrap; font-size:.95rem;padding:.45rem .65rem;width: 100%;max-width: 500px; justify-content: center;}
+  .flex-wrap{display:flex;flex-wrap: wrap; font-size:.95rem;width: 100%;max-width: 500px; justify-content: space-between; }
+}
+

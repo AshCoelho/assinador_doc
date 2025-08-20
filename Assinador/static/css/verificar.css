@@ -1,0 +1,104 @@
+:root {
+      --primary-color: #007bff;
+      --secondary-color: #6c757d;
+      --success-color: #28a745;
+      --danger-color: #dc3545;
+      --light-bg: #f8f9fa;
+      --dark-text: #212529;
+      --card-shadow: 0 4px 8px rgba(0,0,0,0.1);
+    }
+
+    body {
+      background-color: var(--light-bg);
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+    }
+
+    .container.py-4 {
+      max-width: 1500px;
+    }
+   
+
+    .page-header{
+    gap: .75rem;
+    }
+    .page-header .vr{
+    height: 24px;
+    }
+
+    .card {
+      border: none;
+      border-radius: 12px;
+      box-shadow: var(--card-shadow);
+    }
+    
+    .card-body {
+      padding: 2rem;
+    }
+
+    .btn-group .btn{
+      display: inline-flex;
+      align-items: center;
+      gap: .35rem;
+    }
+    
+    .btn-primary {
+      background-color: var(--primary-color);
+      border-color: var(--primary-color);
+    }
+    
+    .btn-primary:hover {
+      background-color: #0056b3;
+      border-color: #004085;
+      transform: translateY(-2px);
+    }
+
+    .btn-success {
+      background-color: var(--success-color);
+      border-color: var(--success-color);
+    }
+    
+    .btn-success:hover {
+      background-color: #218838;
+      border-color: #1e7e34;
+      transform: translateY(-2px);
+    }
+
+    .btn-secondary {
+      background-color: var(--secondary-color);
+      border-color: var(--secondary-color);
+    }
+    
+    .btn-secondary:hover {
+      background-color: #5a6268;
+      border-color: #545b62;
+    }
+    
+    .form-control {
+      border-radius: 50px;
+      padding: 0.50rem 0.75rem;
+    }
+
+    .alert {
+      border-radius: 12px;
+      font-weight: 500;
+    }
+    
+    .text-muted {
+      font-size: 1rem;
+    }
+
+    /* Responsividade */
+    @media (max-width: 768px) {
+      .card-body {
+        padding: 1.5rem;
+      }
+
+      .row.g-2 > .col-auto, .row.g-2 > .col-md-4 {
+        width: 100%;
+      }
+      
+      .back-button-container {
+        justify-content: center;
+        margin-bottom: 1.5rem;
+      }
+    }

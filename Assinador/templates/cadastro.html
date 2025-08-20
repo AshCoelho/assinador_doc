@@ -21,7 +21,7 @@
     <!-- Cabeçalho / Ações -->
     <div class="page-header d-flex flex-wrap align-items-center gap-2 mb-4">
       <a href="{{ url_for('auth.login') }}" class="btn btn-outline-secondary btn-sm">
-        <i class="bi bi-arrow-left"></i> <span class="d-none d-sm-inline">Voltar ao Login</span>
+        <i class="bi bi-arrow-left"></i> <span class="d-none d-sm-inline">Voltar</span>
       </a>
       <div class="vr d-none d-sm-flex"></div>
       <h1 class="h4 mb-0 fw-semibold">Cadastro de Usuários</h1>
@@ -54,19 +54,19 @@
               <div class="input-group input-group-lg has-icon">
                 <span class="input-group-text" aria-hidden="true"><i class="bi bi-envelope-fill"></i></span>
                 <input type="email" class="form-control" id="email" name="email"
-                       value="{{ usuario_editar['email'] if usuario_editar else '' }}" required>
+                    value="{{ usuario_editar['email'] if usuario_editar else '' }}" required>
                 <div class="invalid-feedback">Informe um e-mail válido.</div>
               </div>
             </div>
 
             <div class="col-12 col-md-6">
-              <label class="form-label" for="cpf">CPF (somente números)</label>
+              <label class="form-label" for="cpf">CPF</label>
               <div class="input-group input-group-lg has-icon">
                 <span class="input-group-text" aria-hidden="true"><i class="bi bi-card-text"></i></span>
                 <input type="text" class="form-control" id="cpf" name="cpf" pattern="\d{11}"
                        placeholder="Apenas números"
                        value="{{ usuario_editar['cpf'] if usuario_editar else '' }}" required>
-                <div class="invalid-feedback">Digite 11 números (somente dígitos).</div>
+                <div class="invalid-feedback">Digite 11 números.</div>
               </div>
             
             </div>

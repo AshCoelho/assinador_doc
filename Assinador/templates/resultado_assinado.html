@@ -26,12 +26,12 @@
   <div class="card shadow-sm">
     <div class="card-body">
       <div class="d-flex flex-wrap gap-2">
-        <a class="btn btn-primary" href="{{ signed_url }}" target="_blank">👁️ Ver no navegador</a>
+        <a class="btn btn-primary" href="{{ signed_url }}" target="_blank">Ver no navegador</a>
 
-        <a class="btn btn-success" href="{{ url_for('download', filename=arquivo) }}" target="_blank">⬇ Baixar</a>
+        <a class="btn btn-success" href="{{ url_for('download', filename=arquivo) }}" target="_blank">Baixar</a>
 
-        <a class="btn btn-secondary" href="{{ url_for('assinar') }}">✍️ Assinar outro</a>
-        <a href="{{ url_for('auth.login') }}" class="btn btn-secondary ms-2">🔙 Voltar ao Início</a>
+        <a class="btn btn-secondary" href="{{ url_for('assinar') }}">Assinar outro</a>
+        <a href="{{ url_for('auth.login') }}" class="btn btn-secondary ms-2">Voltar ao Início</a>
 
       </div>
 
