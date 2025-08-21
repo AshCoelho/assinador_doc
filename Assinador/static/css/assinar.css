@@ -20,21 +20,50 @@
   border:1px dashed var(--border);
   border-radius:.75rem;
   padding:8px;
-  min-height: clamp(240px, 50vh, 70vh);
+  min-height: clamp(200px, 250vh, 70vh);
   max-height: 82vh;
   overflow:auto;
 }
 
-/* Canvas centralizado e escalável mantendo proporção */
+/* Canvas: nunca display:none — esconda com visibility para manter dimensões */
 #canvasContainer canvas{
-  display:none;               /* o JS mostra o ativo */
-  width:100% !important;      /* força preencher horizontalmente no mobile */
-  height:auto !important;
+  display:none;
   margin:0 auto;
   background:#fff;
   box-shadow:0 1px 2px rgba(0,0,0,.03);
 }
 
+#canvasContainer canvas.active{ display:block; }
+
+/* quando há arquivo: container gruda no conteúdo (sem espaço sobrando) */
+#canvasContainer.filled{
+  background: transparent;
+  border: none;
+  padding: 0 !important;
+  min-height: 0 !important;
+  max-height: none !important;
+  overflow: visible;
+}
+
+
+/* O retângulo é absoluto em relação ao #stage */
+#stage{ width:100% !important;
+  height:auto !important;position:relative;display: inline-block;     }
+#canvasContainer.filled #stage{
+  margin: 0 auto;           /* centraliza horizontalmente quando preenchido */
+}
+/* carimbo acima do canvas */
+.retangulo{ z-index:20; }
+
+/* alças de resize */
+.retangulo .handle{
+  position:absolute; width:14px; height:14px; background:#0d6efd;
+  border:2px solid #fff; border-radius:50%; box-shadow:0 1px 3px rgba(0,0,0,.25);
+}
+.handle.br{ right:-8px; bottom:-8px; cursor:se-resize; }
+.handle.tr{ right:-8px; top:-8px;    cursor:ne-resize; }
+.handle.bl{ left:-8px;  bottom:-8px; cursor:sw-resize; }
+.handle.tl{ left:-8px;  top:-8px;    cursor:nw-resize; }
 /* Carimbo (posição/tamanho definidos por ratio via JS) */
 .retangulo{
   touch-action: none;
@@ -51,8 +80,16 @@
   -webkit-tap-highlight-color: transparent;
 }
 
+
+/* Garanta que clique/toque “chegue” no carimbo */
+.retangulo {
+    touch-action: none;
+    -webkit-user-select: none;
+    user-select: none;
+  }
+
 .retangulo .stamp-content{
-  pointer-events:none;
+  pointer-events:auto !important;
   display:flex;flex-direction:column;justify-content:center;align-items:center;
   height:100%;padding:.5rem .75rem;text-align:center;color:#0d6efd;
   line-height:1.25;font-size:clamp(.75rem,1.5vw,.95rem);
@@ -73,18 +110,42 @@
 @media (max-width:992px){
   .app-header{flex-direction:column;align-items:flex-start;gap:.5rem}
   .app-title img{width:40px;height:40px}
-  
+  /* Limite real do editor no desktop e centralizado */
+  #canvasContainer {
+    max-width: 1000px;   /* ajuste aqui 960/1000/1100 etc. */
+    margin: 0 auto;
+  }
 }
+
+#stage { width: 100%; }
+
+/* Canvas sempre cabendo no container, sem estourar */
+#stage canvas {
+  width: 100% !important;
+  height: auto !important;
+  display: block;
+}
+
 
 @media (max-width:575.98px){
   #canvasContainer{min-height: clamp(220px, 55vh, 65vh); padding:6px}
   .center-bar .btn{display:flex;flex-wrap: wrap; font-size:.95rem;padding:.45rem .65rem;width: 100%;max-width: 500px; justify-content: center;}
   .flex-wrap{display:flex;flex-wrap: wrap; font-size:.95rem;width: 100%;max-width: 500px; justify-content: space-between; }
+  #canvasContainer.filled{
+    padding:0 !important;
+    min-height:0 !important;
+    max-height:none !important;
+  }
 }
 
 @media (max-width:505.98px){
   #canvasContainer{min-height: clamp(220px, 55vh, 65vh); padding:6px}
   .center-bar .btn{display:flex;flex-wrap: wrap; font-size:.95rem;padding:.45rem .65rem;width: 100%;max-width: 500px; justify-content: center;}
   .flex-wrap{display:flex;flex-wrap: wrap; font-size:.95rem;width: 100%;max-width: 500px; justify-content: space-between; }
+  #canvasContainer.filled{
+    padding:0 !important;
+    min-height:0 !important;
+    max-height:none !important;
+  }
 }
 

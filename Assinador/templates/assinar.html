@@ -3,11 +3,10 @@
 <head>
   <meta charset="utf-8"/>
   <title>Assinatura de Documento</title>
-  <meta name="viewport" content="width=device-width, initial-scale=1"> <!-- IMPORTANTE p/ mobile -->
+  <meta name="viewport" content="width=device-width, initial-scale=1">
   <link rel="shortcut icon" href="../static/img/brasao_32.ico">
   <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
   <link rel="stylesheet" href="../static/css/assinar.css">
-
   <!-- pdf.js + worker -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js"></script>
@@ -51,13 +50,33 @@
       <div class="alert alert-danger">{{ erro }}</div>
     {% endif %}
 
-    <!-- STAGE responsivo (centra o conteúdo) -->
+    <!-- STAGE -->
     <div id="canvasContainer" class="mb-3">
       <div id="stage" class="stage">
-        <canvas id="imgCanvas" style="display:none;"></canvas>
-        <canvas id="pdfCanvas" style="display:none;"></canvas>
-        <div id="assinaturaImagem" class="retangulo" style="display:none;"></div>
-        <div id="assinaturaPDF"   class="retangulo" style="display:none;"></div>
+        <canvas id="imgCanvas" class="is-loading"></canvas>
+        <canvas id="pdfCanvas" class="is-loading"></canvas>
+
+        <div id="assinaturaImagem" class="retangulo" style="display:none;">
+          <div class="stamp-content">
+            <div class="stamp-title">Assinatura</div>
+            Arraste para posicionar
+          </div>
+          <div class="handle tl"></div>
+          <div class="handle tr"></div>
+          <div class="handle bl"></div>
+          <div class="handle br"></div>
+        </div>
+
+        <div id="assinaturaPDF" class="retangulo" style="display:none;">
+          <div class="stamp-content">
+            <div class="stamp-title">Assinatura</div>
+            Arraste para posicionar
+          </div>
+          <div class="handle tl"></div>
+          <div class="handle tr"></div>
+          <div class="handle bl"></div>
+          <div class="handle br"></div>
+        </div>
       </div>
     </div>
 
@@ -154,16 +173,9 @@
 
         <div class="viewer">
           {% if is_pdf %}
-            <!-- 1) tenta iframe -->
             <iframe class="pdf-frame" id="resultIframe" src="{{ signed_url }}#toolbar=1&view=FitH" title="Pré-visualização do PDF" loading="lazy"></iframe>
-
-            <!-- 2) fallback: object -->
             <object data="{{ signed_url }}" type="application/pdf" class="pdf-object d-none" id="resultObject"></object>
-
-            <!-- 3) fallback final: pdf.js render 1ª página -->
             <canvas id="resultCanvas" class="d-none" style="width:100%;height:auto;"></canvas>
-
-            <!-- Mensagem de fallback -->
             <div class="pdf-fallback d-none" id="resultFallback">
               Seu navegador não consegue exibir o PDF embutido. Use os botões acima para <a href="{{ signed_url }}" target="_blank" rel="noopener">abrir</a> ou <a href="{{ url_for('download', filename=arquivo) }}">baixar</a>.
             </div>
@@ -179,9 +191,342 @@
   </div>
 
   <!-- ====== SCRIPT PRINCIPAL (stage + drag + pdfjs na edição) ====== -->
-  <!-- (Cole aqui o script que você já está usando para o stage/assinatura — sem mudanças) -->
+  <script>
+(function(){
+  const imgCanvas = document.getElementById('imgCanvas');
+  const pdfCanvas = document.getElementById('pdfCanvas');
+  const sigImg    = document.getElementById('assinaturaImagem');
+  const sigPdf    = document.getElementById('assinaturaPDF');
 
-  <!-- ====== SCRIPT: fallback mobile do RESULTADO ====== -->
+  const pageInput   = document.getElementById('pageInput');
+  const pageTotalEl = document.getElementById('pageTotal');
+  const btnPrev     = document.getElementById('btnPrevPage');
+  const btnNext     = document.getElementById('btnNextPage');
+  const pdfControls = document.getElementById('pdfControls');
+
+  const container = document.getElementById('canvasContainer');
+  const stage     = document.getElementById('stage');
+
+  // hidden inputs
+  const hx = document.getElementById('x');
+  const hy = document.getElementById('y');
+  const hw = document.getElementById('w');
+  const hh = document.getElementById('h');
+  const hcw = document.getElementById('canvas_w');
+  const hch = document.getElementById('canvas_h');
+  const hpage = document.getElementById('page');
+
+  const btnCenterH = document.getElementById('btnCenterH');
+  const btnCenterV = document.getElementById('btnCenterV');
+
+  let pdfDoc = null, currentPage = 1, activeCanvas = null, activeSig = null;
+
+  // =================== entrada do arquivo ===================
+  window.handleFile = async function(input){
+    const file = input.files?.[0];
+    if(!file) return;
+    resetStage();
+
+    const isPDF = file.type === 'application/pdf' || /\.pdf$/i.test(file.name);
+    if (isPDF) {
+      await renderPDF(file);        // setActive é chamado por página
+    } else {
+      await renderImage(file);      // setActive é chamado após desenhar
+    }
+  };
+
+  // =================== helpers base ===================
+  function setActive(canvas, sig){
+    // desativa ambos
+    [imgCanvas, pdfCanvas].forEach(c=>{
+      c.classList.remove('active');
+      c.style.display = 'none';
+    });
+
+    activeCanvas = canvas;
+    activeSig    = sig;
+
+    canvas.style.display = 'block';
+    canvas.classList.add('active');
+
+    // stage acompanha o canvas ativo (CSS limita a largura)
+    stage.style.width  = '100%';
+    stage.style.height = '';
+
+    container.classList.add('filled');
+    pushHiddenCanvasSize();
+  }
+
+  function resetStage(){
+    container.classList.remove('filled');
+
+    [imgCanvas, pdfCanvas].forEach(c=>{
+      const ctx = c.getContext('2d');
+      ctx && ctx.clearRect(0,0,c.width||0,c.height||0);
+      c.width = 0; c.height = 0;
+      c.style.width = '';
+      c.style.height = '';
+      c.style.display = 'none';
+      c.classList.remove('active');
+    });
+
+    [sigImg, sigPdf].forEach(s=>{ s.style.display='none'; s.dataset.bound=''; });
+
+    pdfControls.style.display = 'none';
+    pdfDoc = null; currentPage = 1;
+    pageInput && (pageInput.value = '1');
+    hpage && (hpage.value = '1');
+    activeCanvas = null; activeSig = null;
+
+    // zera hidden
+    hx && (hx.value=''); hy && (hy.value=''); hw && (hw.value=''); hh && (hh.value='');
+    hcw && (hcw.value=''); hch && (hch.value='');
+  }
+
+  function placeStamp(el, cw, ch){
+    const w = Math.max(160, Math.round(cw * 0.28));
+    const h = Math.max( 90, Math.round(ch * 0.16));
+    const x = Math.max(8, cw - w - 16);
+    const y = Math.max(8, ch - h - 16);
+    setRect(el, x, y, w, h);
+  }
+  function setRect(el, x, y, w, h){
+    el.style.left   = x + 'px';
+    el.style.top    = y + 'px';
+    el.style.width  = w + 'px';
+    el.style.height = h + 'px';
+  }
+  function getRect(el){
+    return {
+      x: parseFloat(el.style.left||'0'),
+      y: parseFloat(el.style.top||'0'),
+      w: parseFloat(el.style.width||'0'),
+      h: parseFloat(el.style.height||'0')
+    };
+  }
+  function clampRect(r){
+    const cw = activeCanvas ? activeCanvas.width  : stage.clientWidth;
+    const ch = activeCanvas ? activeCanvas.height : stage.clientHeight;
+    r.w = Math.max(48, Math.min(r.w, cw - r.x));
+    r.h = Math.max(48, Math.min(r.h, ch - r.y));
+    r.x = Math.max(0, Math.min(r.x, cw - r.w));
+    r.y = Math.max(0, Math.min(r.y, ch - r.h));
+    return r;
+  }
+  function pushHiddenCanvasSize(){
+    const cw = activeCanvas ? activeCanvas.width  : stage.clientWidth;
+    const ch = activeCanvas ? activeCanvas.height : stage.clientHeight;
+    hcw && (hcw.value = String(cw));
+    hch && (hch.value = String(ch));
+  }
+  function pushHiddenStamp(){
+    if(!activeSig) return;
+    const r = getRect(activeSig);
+    hx && (hx.value = String(Math.round(r.x)));
+    hy && (hy.value = String(Math.round(r.y)));
+    hw && (hw.value = String(Math.round(r.w)));
+    hh && (hh.value = String(Math.round(r.h)));
+    pushHiddenCanvasSize();
+  }
+  function getPoint(ev){
+    const rect = stage.getBoundingClientRect();
+    if(ev.touches && ev.touches[0]){
+      return {
+        x: ev.touches[0].clientX - rect.left,
+        y: ev.touches[0].clientY - rect.top
+      };
+    }else{
+      return {
+        x: ev.clientX - rect.left,
+        y: ev.clientY - rect.top
+      };
+    }
+  }
+
+  // =================== drag/resize do carimbo ===================
+  function enableDragAndResize(box){
+    if (box.dataset.bound === '1') return;  // evita duplicar listeners
+    box.dataset.bound = '1';
+
+    let mode = null; // 'move' | 'resize:tl/tr/bl/br'
+    let start = {x:0,y:0};
+    let initRect = null;
+
+    const onDown = (ev)=>{
+      const pt = getPoint(ev);
+      const target = ev.target.closest('.handle');
+      mode = target ? ('resize:' + target.classList[1]) : 'move';
+      start = pt;
+      initRect = getRect(box);
+      ev.preventDefault();
+    };
+
+    const onMove = (ev)=>{
+      if(!mode) return;
+      const pt = getPoint(ev);
+      const dx = pt.x - start.x;
+      const dy = pt.y - start.y;
+
+      let r = {...initRect};
+      if(mode === 'move'){
+        r.x += dx; r.y += dy;
+      }else{
+        const dir = mode.split(':')[1]; // tl,tr,bl,br
+        if(dir === 'br'){ r.w += dx; r.h += dy; }
+        if(dir === 'tr'){ r.w += dx; r.h -= dy; r.y += dy; }
+        if(dir === 'bl'){ r.w -= dx; r.h += dy; r.x += dx; }
+        if(dir === 'tl'){ r.w -= dx; r.h -= dy; r.x += dx; r.y += dy; }
+      }
+      r = clampRect(r);
+      setRect(box, r.x, r.y, r.w, r.h);
+      pushHiddenStamp();
+      ev.preventDefault();
+    };
+
+    const onUp = ()=>{ mode = null; };
+
+    // mouse
+    box.addEventListener('mousedown', onDown);
+    window.addEventListener('mousemove', onMove);
+    window.addEventListener('mouseup', onUp);
+
+    // touch
+    box.addEventListener('touchstart', onDown, {passive:false});
+    window.addEventListener('touchmove', onMove, {passive:false});
+    window.addEventListener('touchend', onUp);
+  }
+
+  // =================== render de IMAGEM ===================
+  async function renderImage(file){
+    // mostra apenas o canvas de imagem
+    imgCanvas.style.display = 'block';
+    pdfCanvas.style.display = 'none';
+
+    const url = URL.createObjectURL(file);
+    const img = new Image();
+    img.onload = ()=>{
+      const stageW = container.clientWidth || 360;
+
+      const scale  = stageW / img.width;
+      const w = Math.max(1, Math.round(img.width * scale));
+      const h = Math.max(1, Math.round(img.height * scale));
+
+      // atributos + estilo
+      imgCanvas.width  = w;
+      imgCanvas.height = h;
+      imgCanvas.style.width  = w + 'px';
+      imgCanvas.style.height = h + 'px';
+
+      const ctx = imgCanvas.getContext('2d');
+      ctx.clearRect(0,0,w,h);
+      ctx.drawImage(img, 0, 0, w, h);
+
+      // ativa oficialmente AGORA (com dimensões válidas)
+      setActive(imgCanvas, sigImg);
+
+      // carimbo
+      sigImg.style.display = 'block';
+      placeStamp(sigImg, w, h);
+      enableDragAndResize(sigImg);
+      pushHiddenStamp();
+
+      URL.revokeObjectURL(url);
+    };
+    img.onerror = ()=> URL.revokeObjectURL(url);
+    img.src = url;
+  }
+
+  // =================== render de PDF ===================
+  async function renderPDF(file){
+    // mostra apenas o canvas de PDF (a cada página ativamos de novo)
+    pdfCanvas.style.display = 'block';
+    imgCanvas.style.display = 'none';
+
+    const pdfjs = window['pdfjsLib'];
+    if(!pdfjs){ console.warn('pdf.js não carregado'); return; }
+
+    const url = URL.createObjectURL(file);
+    const loadingTask = pdfjs.getDocument(url);
+    pdfDoc = await loadingTask.promise;
+
+    pageTotalEl && (pageTotalEl.textContent = '/ ' + pdfDoc.numPages);
+    pdfControls.style.display = 'block';
+
+    await renderPDFPage(1);
+
+    // navegação
+    btnPrev && (btnPrev.onclick = async () => {
+      if(currentPage > 1){ currentPage--; pageInput.value = currentPage; await renderPDFPage(currentPage); }
+    });
+    btnNext && (btnNext.onclick = async () => {
+      if(currentPage < pdfDoc.numPages){ currentPage++; pageInput.value = currentPage; await renderPDFPage(currentPage); }
+    });
+    pageInput && (pageInput.onchange = async () => {
+      let p = parseInt(pageInput.value||'1',10);
+      p = Math.max(1, Math.min(pdfDoc.numPages, p));
+      currentPage = p; await renderPDFPage(currentPage);
+    });
+
+    URL.revokeObjectURL(url);
+  }
+
+  async function renderPDFPage(n){
+    // mostra apenas o canvas de PDF
+    pdfCanvas.style.display = 'block';
+    imgCanvas.style.display = 'none';
+
+    const page = await pdfDoc.getPage(n);
+    const containerW = container.clientWidth || 360;
+
+    const vp1 = page.getViewport({ scale: 1.0 });
+    const scale = containerW / vp1.width;
+    const viewport = page.getViewport({ scale });
+
+    // atributos + estilo
+    pdfCanvas.width  = Math.round(viewport.width);
+    pdfCanvas.height = Math.round(viewport.height);
+    pdfCanvas.style.width  = pdfCanvas.width  + 'px';
+    pdfCanvas.style.height = pdfCanvas.height + 'px';
+
+    const ctx = pdfCanvas.getContext('2d');
+    ctx.clearRect(0,0,pdfCanvas.width,pdfCanvas.height);
+    await page.render({ canvasContext: ctx, viewport }).promise;
+
+    // ativa oficialmente A CADA PÁGINA (para manter activeCanvas correto)
+    setActive(pdfCanvas, sigPdf);
+
+    // carimbo
+    sigPdf.style.display = 'block';
+    placeStamp(sigPdf, pdfCanvas.width, pdfCanvas.height);
+    enableDragAndResize(sigPdf);
+
+    hpage && (hpage.value = String(n));
+    currentPage = n;
+    pushHiddenStamp();
+  }
+
+  // centralizar
+  btnCenterH && (btnCenterH.onclick = function(){
+    if(!activeSig) return;
+    const r = getRect(activeSig);
+    const x = Math.round(((activeCanvas ? activeCanvas.width : stage.clientWidth) - r.w)/2);
+    setRect(activeSig, x, r.y, r.w, r.h);
+    pushHiddenStamp();
+  });
+  btnCenterV && (btnCenterV.onclick = function(){
+    if(!activeSig) return;
+    const r = getRect(activeSig);
+    const y = Math.round(((activeCanvas ? activeCanvas.height : stage.clientHeight) - r.h)/2);
+    setRect(activeSig, r.x, y, r.w, r.h);
+    pushHiddenStamp();
+  });
+
+  // mantém canvas_w/h coerentes em resize (não re-renderiza)
+  window.addEventListener('resize', ()=> { pushHiddenCanvasSize(); });
+
+})();
+  </script>
+
   {% if show_result and is_pdf %}
   <script>
     (function(){
@@ -197,26 +542,14 @@
       function show(el){ el?.classList.remove('d-none'); }
       function hide(el){ el?.classList.add('d-none'); }
 
-      // Se o iframe carregar, ótimo!
       iframe?.addEventListener('load', () => { iframeOk = true; });
-      // Damos um tempinho para ver se o iframe realmente renderizou
       window.setTimeout(() => {
-        if (iframeOk && !isMobile) return; // desktop ok
-
-        // Tenta <object>
+        if (iframeOk && !isMobile) return;
         hide(iframe);
         show(obj);
-
-        // Espera um pouco; se ainda não render, usa pdf.js
         window.setTimeout(() => {
-          // Por experiência, muitos mobiles não exibem <object> também
           hide(obj);
-          if (!window['pdfjsLib']) {
-            // Sem pdf.js – mostra fallback textual
-            show(fallback);
-            return;
-          }
-          // Renderiza primeira página via pdf.js
+          if (!window['pdfjsLib']) { show(fallback); return; }
           tryRenderWithPdfJs(url, canvas, fallback);
         }, 400);
       }, 700);
@@ -224,17 +557,14 @@
       function tryRenderWithPdfJs(pdfUrl, canvasEl, fb) {
         const containerWidth = canvasEl.parentElement.clientWidth || 320;
         show(canvasEl);
-
         const loadingTask = pdfjsLib.getDocument(pdfUrl);
         loadingTask.promise.then(pdf => {
           pdf.getPage(1).then(page => {
             const viewport0 = page.getViewport({ scale: 1.0 });
             const scale = Math.max(0.5, Math.min(2.0, containerWidth / viewport0.width));
             const viewport = page.getViewport({ scale });
-
             canvasEl.width  = Math.round(viewport.width);
             canvasEl.height = Math.round(viewport.height);
-
             page.render({ canvasContext: canvasEl.getContext('2d'), viewport }).promise
               .catch(() => { hide(canvasEl); show(fb); });
           }).catch(() => { hide(canvasEl); show(fb); });
