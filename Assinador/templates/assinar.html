@@ -79,7 +79,20 @@
         </div>
       </div>
     </div>
-
+    <!-- Controles de página (PDF) -->
+      <div id="pdfControls" class="mb-3" style="display:none; display: flex; justify-content: center; flex-direction: column; align-items: c;">
+        <label class="form-label">Página do PDF para assinar:</label>
+        <div class="d-flex align-items-center gap-2">
+          <button type="button" class="btn btn-outline-secondary btn-sm" id="btnPrevPage" aria-label="Página anterior">
+            &lsaquo;
+          </button>
+          <input type="number" id="pageInput" class="form-control" style="width:100px" min="1" value="1" aria-label="Número da página">
+          <span id="pageTotal" class="text-muted">/ 1</span>
+          <button type="button" class="btn btn-outline-secondary btn-sm" id="btnNextPage" aria-label="Próxima página">
+            &rsaquo;
+          </button>
+        </div>
+      </div>
     <form enctype="multipart/form-data" id="formulario" method="post" class="card shadow p-4 bg-white rounded">
       <div><h5>Informações do Documento</h5></div>
       <br/>
@@ -104,20 +117,7 @@
         </button>
       </div>
 
-      <!-- Controles de página (PDF) -->
-      <div id="pdfControls" class="mb-3" style="display:none;">
-        <label class="form-label">Página do PDF para assinar:</label>
-        <div class="d-flex align-items-center gap-2">
-          <button type="button" class="btn btn-outline-secondary btn-sm" id="btnPrevPage" aria-label="Página anterior">
-            &lsaquo;
-          </button>
-          <input type="number" id="pageInput" class="form-control" style="width:100px" min="1" value="1" aria-label="Número da página">
-          <span id="pageTotal" class="text-muted">/ 1</span>
-          <button type="button" class="btn btn-outline-secondary btn-sm" id="btnNextPage" aria-label="Próxima página">
-            &rsaquo;
-          </button>
-        </div>
-      </div>
+      
 
       <div class="mb-3">
         <label class="form-label">Nome do Órgão:</label>
@@ -235,6 +235,28 @@
     }
   };
 
+  function forceShowCanvas(cnv){
+  if(!cnv) return;
+  // força exibição e visibilidade
+  cnv.style.display = 'block';
+  cnv.classList.add('active');
+  cnv.style.visibility = 'visible';
+  // se por algum motivo width/height saírem 0, tenta no próximo ciclo
+  if ((cnv.width|0) === 0 || (cnv.height|0) === 0) {
+    requestAnimationFrame(()=> {
+      cnv.style.display = 'block';
+      cnv.classList.add('active');
+      cnv.style.visibility = 'visible';
+    });
+  }
+}
+
+function safeContainerWidth(el){
+  // evita leitura 0 em mobile/tablet
+  const w = el?.clientWidth || window.innerWidth || document.documentElement.clientWidth || 360;
+  return Math.max(320, Math.min(w, 1100)); // 1100 = seu cap no desktop
+}
+
   // =================== helpers base ===================
   function setActive(canvas, sig){
     // desativa ambos
@@ -248,6 +270,9 @@
 
     canvas.style.display = 'block';
     canvas.classList.add('active');
+    canvas.style.visibility = 'visible';
+    canvas.style.display = 'block';
+
 
     // stage acompanha o canvas ativo (CSS limita a largura)
     stage.style.width  = '100%';
@@ -396,45 +421,61 @@
     window.addEventListener('touchend', onUp);
   }
 
-  // =================== render de IMAGEM ===================
-  async function renderImage(file){
-    // mostra apenas o canvas de imagem
-    imgCanvas.style.display = 'block';
-    pdfCanvas.style.display = 'none';
+  // =================== render de IMAGEM (FIX DEFINITIVO) ===================
+async function renderImage(file){
+  // mostra apenas o canvas de imagem
+  imgCanvas.style.display = 'block';
+  pdfCanvas.style.display = 'none';
+  // garante que controles de PDF fiquem escondidos
+  if (pdfControls) pdfControls.style.display = 'none';
 
-    const url = URL.createObjectURL(file);
-    const img = new Image();
-    img.onload = ()=>{
-      const stageW = container.clientWidth || 360;
+  const url = URL.createObjectURL(file);
+  const img = new Image();
 
-      const scale  = stageW / img.width;
-      const w = Math.max(1, Math.round(img.width * scale));
-      const h = Math.max(1, Math.round(img.height * scale));
+  img.onload = () => {
+    // largura segura do container (com mínimo e teto)
+    const cw = safeContainerWidth(container);   // já limita e evita 0
+    // não fazer upscale além do tamanho real da imagem (fica nítido e 1:1 com coordenadas)
+    const displayW = Math.min(cw, img.width);
+    const displayH = Math.max(1, Math.round(img.height * (displayW / img.width)));
 
-      // atributos + estilo
-      imgCanvas.width  = w;
-      imgCanvas.height = h;
-      imgCanvas.style.width  = w + 'px';
-      imgCanvas.style.height = h + 'px';
+    // define tamanho VISÍVEL (CSS)
+    imgCanvas.style.width  = displayW + 'px';
+    imgCanvas.style.height = displayH + 'px';
 
-      const ctx = imgCanvas.getContext('2d');
-      ctx.clearRect(0,0,w,h);
-      ctx.drawImage(img, 0, 0, w, h);
+    // define buffer interno do canvas (coordenadas 1:1 com o que o usuário vê)
+    imgCanvas.width  = displayW;
+    imgCanvas.height = displayH;
 
-      // ativa oficialmente AGORA (com dimensões válidas)
-      setActive(imgCanvas, sigImg);
+    // desenha a imagem escalada
+    const ctx = imgCanvas.getContext('2d');
+    ctx.setTransform(1,0,0,1,0,0);
+    ctx.imageSmoothingEnabled = true;
+    ctx.clearRect(0, 0, displayW, displayH);
+    ctx.drawImage(img, 0, 0, displayW, displayH);
 
-      // carimbo
-      sigImg.style.display = 'block';
-      placeStamp(sigImg, w, h);
-      enableDragAndResize(sigImg);
-      pushHiddenStamp();
+    // ativa o canvas e garante visibilidade
+    setActive(imgCanvas, sigImg);
+    forceShowCanvas(imgCanvas);
 
-      URL.revokeObjectURL(url);
-    };
-    img.onerror = ()=> URL.revokeObjectURL(url);
-    img.src = url;
-  }
+    // carimbo
+    sigImg.style.display = 'block';
+    placeStamp(sigImg, displayW, displayH);
+    enableDragAndResize(sigImg);
+    pushHiddenStamp(); // x,y,w,h + canvas_w/h
+
+    URL.revokeObjectURL(url);
+  };
+
+  img.onerror = () => {
+    URL.revokeObjectURL(url);
+    console.error('Falha ao carregar a imagem selecionada.');
+    alert('Não foi possível abrir esta imagem. Tente outro arquivo (.png, .jpg ou .jpeg).');
+  };
+
+  img.src = url;
+}
+
 
   // =================== render de PDF ===================
   async function renderPDF(file){
@@ -476,8 +517,8 @@
     imgCanvas.style.display = 'none';
 
     const page = await pdfDoc.getPage(n);
-    const containerW = container.clientWidth || 360;
-
+    const MAX_W = 1100;
+    const containerW = safeContainerWidth(container);
     const vp1 = page.getViewport({ scale: 1.0 });
     const scale = containerW / vp1.width;
     const viewport = page.getViewport({ scale });
@@ -494,6 +535,8 @@
 
     // ativa oficialmente A CADA PÁGINA (para manter activeCanvas correto)
     setActive(pdfCanvas, sigPdf);
+    forceShowCanvas(pdfCanvas);
+
 
     // carimbo
     sigPdf.style.display = 'block';
@@ -523,6 +566,12 @@
 
   // mantém canvas_w/h coerentes em resize (não re-renderiza)
   window.addEventListener('resize', ()=> { pushHiddenCanvasSize(); });
+
+    const fileInput = document.querySelector('input[name="arquivo"]');
+    if (fileInput && !fileInput.dataset.bound) {
+      fileInput.addEventListener('change', (e)=> window.handleFile(e.target));
+      fileInput.dataset.bound = '1';
+}
 
 })();
   </script>
