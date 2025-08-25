@@ -12,113 +12,92 @@
 .text-end,.text-end-1{display:flex;width:100%;justify-content:space-between;align-items:center}
 .text-end-1{justify-content:flex-end}
 .usuario{margin-right:.75rem;font-size:clamp(.95rem,1.6vw,1rem)}
+#canvasContainer{position: relative;background: #f8f9fa;border: 1px dashed var(--border);border-radius: .15rem;padding: 8px;max-width: 1100px;      margin: 0 auto;max-height: 82vh;overflow: auto;}
 
-/* Área de visualização – realmente fluida */
-#canvasContainer{
-  position: relative;
-  background: #f8f9fa;
-  border: 1px dashed var(--border);
-  border-radius: .15rem;
-  padding: 8px;
-
-  /* limites universais */
-  max-width: 1100px;      
-  margin: 0 auto;
-  max-height: 82vh;
-  overflow: auto;
-}
-
+/*centralizar botoes*/
+#centralizar-button{display: flex;flex-wrap: wrap;width: 100%;justify-content: space-between;}
 
 /* ====== CANVASES ====== */
-/* Deixe o JS controlar display (block/none). Sem !important. */
-#canvasContainer canvas{
-  display: none;
-  margin: 0 auto;
-  background: #fff;
-  box-shadow: 0 1px 2px rgba(0,0,0,.03);
-  /* não force width 100% aqui */
-}
+#canvasContainer canvas{display: none;margin: 0 auto;background: #fff;box-shadow: 0 1px 2px rgba(0,0,0,.03);}
 
-#canvasContainer canvas.active{
-  display: block;
-}
+#canvasContainer canvas.active{display: block;}
 /* Quando preenchido, mantenha limites e rolagem (não solte overflow) */
-#canvasContainer.filled{
-  background: transparent;
-  border: none;
-  padding: 0 !important;
-  max-width: 1100px;     
-  margin: 0 auto;
-  max-height: 82vh !important;
-  overflow: auto !important;
-}
+#canvasContainer.filled{background: transparent;border: none;padding: 0 !important;max-width: 1100px;     margin: 0 auto;max-height: 82vh !important;overflow: auto !important;}
 
+.assinar-doc{display: flex;flex-direction: row;gap: 7px; justify-content: space-between;}
+.assinar-doc-2{display: flex;flex-direction: row;gap: 7px; justify-content: space-between;}  
+.resultado-assinado.resultado-assinado{display: flex;flex-direction: row;gap: 7px; justify-content: space-between;}
+.resultado-assinado-2{display: flex;flex-direction: row;gap: 7px; justify-content: space-between;}
 
 /* O retângulo é absoluto em relação ao #stage */
-#stage{
-  position: relative;
-  display: block;
-  width: 100% !important;
-  height: auto !important;
-  margin: 0 auto;
-  z-index: 5;
-}
+#stage{position: relative;display: block;width: 100% !important;height: auto !important;margin: 0 auto;z-index: 5;}
 
 /* Canvas respeita o cap do container sem esticar além do necessário */
-#stage canvas{
-  display: block;
-  max-width: 100%;  
-  height: auto;     
-}
+#stage canvas{display: block;max-width: 100%;  height: auto;     }
 
 
-#canvasContainer.filled #stage{
-  margin: 0 auto;           
-}
-/* carimbo acima do canvas */
-.retangulo{ z-index: 20; }
+#canvasContainer.filled #stage{margin: 0 auto;}
 
-/* alças de resize */
-.retangulo .handle{
-  position:absolute; width:14px; height:14px; background:#0d6efd;
-  border:2px solid #fff; border-radius:50%; box-shadow:0 1px 3px rgba(0,0,0,.25);
-}
-.handle.br{ right:-8px; bottom:-8px; cursor:se-resize; }
-.handle.tr{ right:-8px; top:-8px;    cursor:ne-resize; }
-.handle.bl{ left:-8px;  bottom:-8px; cursor:sw-resize; }
-.handle.tl{ left:-8px;  top:-8px;    cursor:nw-resize; }
-
-/* Carimbo (posição/tamanho definidos por ratio via JS) */
+/* ===== carimbo visual ===== */
 .retangulo{
-  touch-action: none;
   position:absolute;
-  border:2px dashed var(--brand);
-  border-radius:.5rem;
-  background:rgba(13,110,253,.08);
-  box-shadow:0 4px 18px rgba(38,136,228,.2);
-  cursor:move; user-select:none;
-  display:none;
-  min-width:96px;            
-  min-height:72px;
-  touch-action:none;          
-  -webkit-tap-highlight-color: transparent;
+  padding:6px 10px;
+  display:flex;
+  flex-direction:column;
+  align-items:center;
+  justify-content:center;
+  gap:3px;
+
+  /* visual */
+  background:#ffffffcb;
+  border:1px dashed #292929b9;          /* borda tracejada cinza */
+  box-shadow: 0px 2px 18px 0px rgba(0, 119, 255, 0.801);    /* “halo” laranja externo */
+  user-select:none;
+  -webkit-user-drag:none;
+  cursor:grab;
+}
+
+.retangulo:active{ cursor:grabbing; }
+
+/* reforço visual ao arrastar (ativado via JS adicionando .dragging) */
+.retangulo.dragging{
+  box-shadow:
+    0px 2px 18px 0px rgba(0,0,0,0.3);
+  border-color:#444444;
+}
+
+/* título e texto */
+.retangulo .stamp-title{
+  font-weight:700;
+  margin-bottom: 2px;
+  font-size:13px;
+  text-align:center;
+  color:#222;
+  line-height:1.2;
+}
+
+.retangulo .stamp-hint{
+  font-size:10px;
+  color:#504d4d;
+  text-align:center;
+  line-height:1.2;
+}
+
+/* esconder alças de resize (não são mais usadas) */
+.retangulo .handle{ display:none !important; }
+
+/* opcional: alto contraste quando o carimbo ganha foco por teclado */
+.retangulo:focus-visible{
+  outline:2px solid rgba(0, 89, 255, 0.5);
+  outline-offset:2px;
 }
 
 
-/* Garanta que clique/toque “chegue” no carimbo */
-.retangulo {
-    touch-action: none;
-    -webkit-user-select: none;
-    user-select: none;
-  }
 
-.retangulo .stamp-content{
-  pointer-events:auto !important;
-  display:flex;flex-direction:column;justify-content:center;align-items:center;
-  height:100%;padding:.5rem .75rem;text-align:center;color:#0d6efd;
-  line-height:1.25;font-size:clamp(.75rem,1.5vw,.95rem);
-}
-.retangulo .stamp-title{font-weight:700;margin-bottom:.25rem;color:#0948c5}
+
+
+
+
 
 /* Resultado */
 .viewer{border:1px solid var(--border);border-radius:10px;background:#fff;padding:8px;margin-top:16px}
@@ -133,49 +112,44 @@
 
 /* --- DESKTOP: limite real do editor (≥992px) --- */
 @media (min-width: 992px){
-  /* Canvas: controlado pelo JS. Evite !important aqui. */
-#canvasContainer canvas{
-  display: none;
-  margin: 0 auto;
-  background: #fff;
-  box-shadow: 0 1px 2px rgba(0,0,0,.03);
-  visibility: visible; /* não esconda por visibility */
-}
-
-#canvasContainer canvas.active{
-  display: block;
-}
-
-/* Canvas nunca estoura o container; encolhe se precisar */
-#stage canvas{
-  display: block;
-  width: 100%;
-  
-  height: auto;
-}
-
-
-}
+  #canvasContainer canvas{display: none;margin: 0 auto;background: #fff;box-shadow: 0 1px 2px rgba(0,0,0,.03);visibility: visible; /* não esconda por visibility */}
+  #pdfControls{display:flex;justify-content: center;flex-direction: column;align-items: center;}
+  #canvasContainer canvas.active{display: block;}
+  #stage canvas{display: block;width: 100%;height: auto;}}
 
 @media (max-width:575.98px){
   #canvasContainer{min-height: clamp(220px, 55vh, 65vh); padding:6px}
   .center-bar .btn{display:flex;flex-wrap: wrap; font-size:.95rem;padding:.45rem .65rem;width: 100%;max-width: 500px; justify-content: center;}
   .flex-wrap{display:flex;flex-wrap: wrap; font-size:.95rem;width: 100%;max-width: 500px; justify-content: space-between; }
-  #canvasContainer.filled{
-    padding:0 !important;
-    min-height:0 !important;
-    max-height:none !important;
-  }
-}
+  #pdfControls{display:flex;justify-content: center;flex-direction: column;align-items: center;}
+  #canvasContainer.filled{padding:0 !important;min-height:0 !important;max-height:none !important;}}
+  
 
-@media (max-width:505.98px){
+
+@media (max-width:991px){
   #canvasContainer{min-height: clamp(220px, 55vh, 65vh); padding:6px}
   .center-bar .btn{display:flex;flex-wrap: wrap; font-size:.95rem;padding:.45rem .65rem;width: 100%;max-width: 500px; justify-content: center;}
   .flex-wrap{display:flex;flex-wrap: wrap; font-size:.95rem;width: 100%;max-width: 500px; justify-content: space-between; }
-  #canvasContainer.filled{
-    padding:0 !important;
-    min-height:0 !important;
-    max-height:none !important;
+  #pdfControls{display:flex;justify-content: center;flex-direction: column;align-items: center;}
+  #canvasContainer.filled{padding:0 !important;min-height:0 !important;max-height:none !important;}}
+
+
+@media (max-width:511px){
+  #canvasContainer{min-height: clamp(220px, 55vh, 65vh); padding:6px}
+  #canvasContainer.filled{padding:0 !important;min-height:0 !important;max-height:none !important;}
+  .center-bar .btn{display:flex;flex-wrap: wrap; font-size:.95rem;padding:.45rem .65rem;width: 100%;max-width: 500px; justify-content: center;}
+  .flex-wrap{display:flex;flex-wrap: wrap; font-size:.95rem;width: 100%;max-width: 500px; justify-content: space-between; }
+  .app-header{display:block;align-items:center;justify-content:center;width:100%;margin-top:1.5rem;margin-bottom:.5rem;}
+  .app-title{display:flex;align-items:center;gap:.5rem;font-weight:700;color:var(--brand);font-size:clamp(1.2rem,2.2vw,1.6rem)}
+  .text-end,.text-end-1{display:flex;width:100%;justify-content:space-between;align-items:center}
+  .text-end-1{justify-content:space-between}
+  .usuario{margin-right:.75rem;font-size:clamp(.95rem,1.6vw,1rem)}
+  #pdfControls{display:flex;justify-content: center;flex-direction: column;align-items: center;}
+  #centralizar-button{display: flex;flex-direction: column;gap: 7px;}
+  .assinar-doc{display: flex;flex-direction: column;gap: 7px;}
+  .assinar-doc-2{display: flex;flex-direction: row;}
+  #resultado-assinado{display: flex;flex-direction: column;gap: 7px;}
+  .resultado-assinado-2{display: flex;flex-direction: row;}
   }
-}
+
 

@@ -16,7 +16,6 @@
     .container.py-4 {
       max-width: 1500px;
     }
-   
 
     .page-header{
     gap: .75rem;
@@ -74,7 +73,7 @@
     }
     
     .form-control {
-      border-radius: 50px;
+      border-radius: 8px;
       padding: 0.50rem 0.75rem;
     }
 
