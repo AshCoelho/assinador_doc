@@ -6,6 +6,22 @@
   --shadow:0 1px 2px rgba(0,0,0,.06), 0 6px 24px rgba(0,0,0,.06);
 }
 
+/* RESET para evitar flip de PDF */
+#canvasContainer, #stage, #pdfCanvas {
+  transform: none !important;
+  rotate: 0deg !important;
+  scale: 1 !important;
+  transform-origin: top left !important;
+}
+
+
+/* Canvas SEM forçar height via CSS (deixe o JS controlar) */
+#stage canvas{
+  display:block;
+  max-width:100%;
+  /* height:auto;  <-- REMOVA esta linha */
+}
+
 /* Header */
 .app-header{display:flex;align-items:center;justify-content:center;width:100%;margin-top:1.5rem;margin-bottom:.5rem}
 .app-title{display:flex;align-items:center;gap:.5rem;font-weight:700;color:var(--brand);font-size:clamp(1.2rem,2.2vw,1.6rem)}
@@ -32,8 +48,6 @@
 /* O retângulo é absoluto em relação ao #stage */
 #stage{position: relative;display: block;width: 100% !important;height: auto !important;margin: 0 auto;z-index: 5;}
 
-/* Canvas respeita o cap do container sem esticar além do necessário */
-#stage canvas{display: block;max-width: 100%;  height: auto;     }
 
 
 #canvasContainer.filled #stage{margin: 0 auto;}

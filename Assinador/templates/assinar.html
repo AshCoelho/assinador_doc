@@ -513,43 +513,87 @@ async function renderImage(file){
     URL.revokeObjectURL(url);
   }
 
-  async function renderPDFPage(n){
-    // mostra apenas o canvas de PDF
-    pdfCanvas.style.display = 'block';
-    imgCanvas.style.display = 'none';
+// coloque estas duas variáveis globais com as demais:
+let renderToken = 0;
+let currentRenderTask = null;
 
-    const page = await pdfDoc.getPage(n);
-    const MAX_W = 1100;
-    const containerW = safeContainerWidth(container);
-    const vp1 = page.getViewport({ scale: 1.0 });
-    const scale = containerW / vp1.width;
-    const viewport = page.getViewport({ scale });
+async function renderPDFPage(n){
+  // token para evitar corrida
+  const myToken = ++renderToken;
 
-    // atributos + estilo
-    pdfCanvas.width  = Math.round(viewport.width);
-    pdfCanvas.height = Math.round(viewport.height);
-    pdfCanvas.style.width  = pdfCanvas.width  + 'px';
-    pdfCanvas.style.height = pdfCanvas.height + 'px';
+  // mostra pdfCanvas e esconde imgCanvas
+  pdfCanvas.style.display = 'block';
+  imgCanvas.style.display = 'none';
 
-    const ctx = pdfCanvas.getContext('2d');
-    ctx.clearRect(0,0,pdfCanvas.width,pdfCanvas.height);
-    await page.render({ canvasContext: ctx, viewport }).promise;
+  const page = await pdfDoc.getPage(n);
+  const rotate = (page.rotate || 0) % 360;
 
-    // ativa oficialmente A CADA PÁGINA (para manter activeCanvas correto)
-    setActive(pdfCanvas, sigPdf);
-    forceShowCanvas(pdfCanvas);
+  // zera transforms que possam afetar o canvas
+  [pdfCanvas, stage, container].forEach(el=>{
+    if(!el) return;
+    el.style.transform = 'none';
+    el.style.rotate = '0deg';
+    el.style.scale = '1';
+  });
 
+  // calcula viewport respeitando a rotação do PDF
+  const containerW = safeContainerWidth(container);
+  const vp0 = page.getViewport({ scale: 1, rotation: rotate });
+  const scale = containerW / vp0.width;
+  const viewport = page.getViewport({ scale, rotation: rotate });
 
-    // carimbo
-    sigPdf.style.display = 'block';
-    placeStamp(sigPdf, pdfCanvas.width, pdfCanvas.height);
-    enableDragFixed(sigPdf, 300, 305); // mesmo tamanho no PDF
+  // dimensiona o canvas pelo viewport (sem CSS forçando height)
+  pdfCanvas.width  = Math.round(viewport.width);
+  pdfCanvas.height = Math.round(viewport.height);
+  pdfCanvas.style.width  = pdfCanvas.width  + 'px';
+  pdfCanvas.style.height = pdfCanvas.height + 'px';
 
+  const ctx = pdfCanvas.getContext('2d');
+  ctx.setTransform(1,0,0,1,0,0);
+  ctx.clearRect(0,0,pdfCanvas.width,pdfCanvas.height);
 
-    hpage && (hpage.value = String(n));
-    currentPage = n;
-    pushHiddenStamp();
+  // cancela render anterior se existir
+  if (currentRenderTask) {
+    try { currentRenderTask.cancel(); } catch(e){}
+    currentRenderTask = null;
   }
+
+  // único render ativo
+  const task = page.render({ canvasContext: ctx, viewport });
+  currentRenderTask = task;
+
+  try {
+    await task.promise;
+  } catch (e) {
+    // se foi cancelado por troca de página/arquivo, apenas sai
+    if (e && e.name === 'RenderingCancelledException') return;
+    throw e;
+  } finally {
+    if (myToken === renderToken) currentRenderTask = null;
+  }
+
+  // se outro render começou no meio, não continue
+  if (myToken !== renderToken) return;
+
+  // ativa UI
+  setActive(pdfCanvas, sigPdf);
+  forceShowCanvas(pdfCanvas);
+
+  sigPdf.style.display = 'block';
+  placeStamp(sigPdf, pdfCanvas.width, pdfCanvas.height);
+  enableDragFixed(sigPdf, 300, 305);
+
+  hpage && (hpage.value = String(n));
+  currentPage = n;
+  pushHiddenStamp();
+  btnPrev.onclick = async () => { if (currentPage > 1){ currentPage--; pageInput.value = currentPage; await renderPDFPage(currentPage); } };
+  btnNext.onclick = async () => { if (currentPage < pdfDoc.numPages){ currentPage++; pageInput.value = currentPage; await renderPDFPage(currentPage); } };
+  pageInput.onchange = async () => { let p = parseInt(pageInput.value||'1',10); p = Math.max(1, Math.min(pdfDoc.numPages, p)); currentPage = p; await renderPDFPage(currentPage); };
+
+}
+
+
+
 
   // centralizar
   btnCenterH && (btnCenterH.onclick = function(){
