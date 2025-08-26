@@ -26,7 +26,7 @@
 
 .assinar-doc{display: flex;flex-direction: row;gap: 7px; justify-content: space-between;}
 .assinar-doc-2{display: flex;flex-direction: row;gap: 7px; justify-content: space-between;}  
-.resultado-assinado.resultado-assinado{display: flex;flex-direction: row;gap: 7px; justify-content: space-between;}
+.resultado-assinado{display: flex;flex-direction: row;gap: 7px; justify-content: space-between;}
 .resultado-assinado-2{display: flex;flex-direction: row;gap: 7px; justify-content: space-between;}
 
 /* O retângulo é absoluto em relação ao #stage */
@@ -49,8 +49,8 @@
   gap:3px;
 
   /* visual */
-  background:#ffffffcb;
-  border:1px dashed #292929b9;          /* borda tracejada cinza */
+  background:#ffffff;
+  border:1px dashed #aaaaaab9;          /* borda tracejada cinza */
   box-shadow: 0px 2px 18px 0px rgba(0, 119, 255, 0.801);    /* “halo” laranja externo */
   user-select:none;
   -webkit-user-drag:none;
@@ -76,6 +76,7 @@
   line-height:1.2;
 }
 
+
 .retangulo .stamp-hint{
   font-size:10px;
   color:#504d4d;
@@ -91,11 +92,6 @@
   outline:2px solid rgba(0, 89, 255, 0.5);
   outline-offset:2px;
 }
-
-
-
-
-
 
 
 
@@ -117,13 +113,6 @@
   #canvasContainer canvas.active{display: block;}
   #stage canvas{display: block;width: 100%;height: auto;}}
 
-@media (max-width:575.98px){
-  #canvasContainer{min-height: clamp(220px, 55vh, 65vh); padding:6px}
-  .center-bar .btn{display:flex;flex-wrap: wrap; font-size:.95rem;padding:.45rem .65rem;width: 100%;max-width: 500px; justify-content: center;}
-  .flex-wrap{display:flex;flex-wrap: wrap; font-size:.95rem;width: 100%;max-width: 500px; justify-content: space-between; }
-  #pdfControls{display:flex;justify-content: center;flex-direction: column;align-items: center;}
-  #canvasContainer.filled{padding:0 !important;min-height:0 !important;max-height:none !important;}}
-  
 
 
 @media (max-width:991px){
@@ -132,6 +121,14 @@
   .flex-wrap{display:flex;flex-wrap: wrap; font-size:.95rem;width: 100%;max-width: 500px; justify-content: space-between; }
   #pdfControls{display:flex;justify-content: center;flex-direction: column;align-items: center;}
   #canvasContainer.filled{padding:0 !important;min-height:0 !important;max-height:none !important;}}
+
+
+@media (max-width:575.98px){
+#canvasContainer{min-height: clamp(220px, 55vh, 65vh); padding:6px}
+.center-bar .btn{display:flex;flex-wrap: wrap; font-size:.95rem;padding:.45rem .65rem;width: 100%;max-width: 500px; justify-content: center;}
+.flex-wrap{display:flex;flex-wrap: wrap; font-size:.95rem;width: 100%;max-width: 500px; justify-content: space-between; }
+#pdfControls{display:flex;justify-content: center;flex-direction: column;align-items: center;}
+#canvasContainer.filled{padding:0 !important;min-height:0 !important;max-height:none !important;}}
 
 
 @media (max-width:511px){
@@ -148,7 +145,7 @@
   #centralizar-button{display: flex;flex-direction: column;gap: 7px;}
   .assinar-doc{display: flex;flex-direction: column;gap: 7px;}
   .assinar-doc-2{display: flex;flex-direction: row;}
-  #resultado-assinado{display: flex;flex-direction: column;gap: 7px;}
+  .resultado-assinado{display: flex;flex-direction: column;gap: 7px;}
   .resultado-assinado-2{display: flex;flex-direction: row;}
   }
 

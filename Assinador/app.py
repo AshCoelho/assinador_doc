@@ -310,10 +310,10 @@ def assinar():
             )
 
             # Ícones pequenos lado a lado
-            qr_w = 50
-            qr_h = 50
-            brasao_w = 35
-            brasao_h = 50
+            qr_w = 35
+            qr_h = 35
+            brasao_w = 25
+            brasao_h = 35
             gap_pt = 6
 
             total_icons_w = qr_w + gap_pt + brasao_w
@@ -336,7 +336,7 @@ def assinar():
             # Texto logo abaixo
             inicio_y_texto = y_icones + max(qr_h, brasao_h) + 8
             font_size_normal = 9
-            font_size_status = 14
+            font_size_status = 13
             espaco_entre_linhas = 12
 
             for linha in linhas:

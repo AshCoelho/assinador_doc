@@ -377,7 +377,7 @@ function safeContainerWidth(el){
 
   // =================== drag FIXO do carimbo ===================
 function enableDragFixed(box, fixedW, fixedH){
-  if (box.dataset.bound === '1') return;  // evita duplicar listeners
+  if (box.dataset.bound === '1') return; 
   box.dataset.bound = '1';
 
   let start = {x:0,y:0};
@@ -463,7 +463,7 @@ async function renderImage(file){
     // carimbo
     sigImg.style.display = 'block';
     placeStamp(sigImg, displayW, displayH);
-    enableDragFixed(sigImg, 230, 220);
+    enableDragFixed(sigImg, 270, 240);
     pushHiddenStamp(); // x,y,w,h + canvas_w/h
 
     URL.revokeObjectURL(url);
@@ -543,7 +543,7 @@ async function renderImage(file){
     // carimbo
     sigPdf.style.display = 'block';
     placeStamp(sigPdf, pdfCanvas.width, pdfCanvas.height);
-    enableDragFixed(sigPdf, 200, 225); // mesmo tamanho no PDF
+    enableDragFixed(sigPdf, 300, 305); // mesmo tamanho no PDF
 
 
     hpage && (hpage.value = String(n));
