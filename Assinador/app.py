@@ -1,3 +1,4 @@
+
 # Assinador de Documentos (Flask + PyMuPDF + PIL) - com segurança integrada (auth.py)
 # ------------------------------------------------------------------------------------
 import os, textwrap, hashlib
@@ -11,7 +12,7 @@ import qrcode
 from qrcode.constants import ERROR_CORRECT_Q, ERROR_CORRECT_H
 from PIL import Image, ImageDraw, ImageFont
 import fitz  # PyMuPDF
-
+import re
 # ORM
 from models import db, User
 
@@ -303,62 +304,74 @@ def assinar():
             ponto_w = max(1, int(w * escala_x))
             ponto_h = max(1, int(h * escala_y))
 
-            # --- Moldura (debug) — comente se não quiser no PDF final ---
-            page.draw_rect(
-                fitz.Rect(ponto_x, ponto_y, ponto_x + ponto_w, ponto_y + ponto_h),
-                color=(1, 0, 0), width=1
-            )
+            
+            # ===== Escala pelo tamanho do retângulo (base pensado para A4) =====
+            BASE_W = 190.0   # largura útil de referência
+            BASE_H = 180.0   # altura útil de referência
 
-            # Ícones pequenos lado a lado
-            qr_w = 35
-            qr_h = 35
-            brasao_w = 25
-            brasao_h = 35
-            gap_pt = 6
+            s_w = ponto_w / BASE_W
+            s_h = ponto_h / BASE_H
+            s = max(0.6, min(4.0, min(s_w, s_h)))  # trava entre 60% e 400%
 
+            # tamanhos em pontos (PDF)
+            qr_w = int(round(35 * s))
+            qr_h = int(round(35 * s))
+            brasao_w = int(round(25 * s))
+            brasao_h = int(round(35 * s))
+            gap_pt = int(round(6 * s))
+
+            font_size_normal = max(6, int(round(9 * s)))
+            font_size_status = max(8, int(round(13 * s)))
+            espaco_entre_linhas = max(8, int(round(12 * s)))
+
+            # Centraliza ícones no topo do retângulo
             total_icons_w = qr_w + gap_pt + brasao_w
             x_icones = ponto_x + int((ponto_w - total_icons_w) / 2)
-            y_icones = ponto_y + 10
+            y_icones = ponto_y + int(round(10 * s))
 
-            # QR 50x50
+            #  Moldura debug 
+            #page.draw_rect(fitz.Rect(ponto_x, ponto_y, ponto_x + ponto_w, ponto_y + ponto_h),
+             #              color=(1, 0, 0), width=max(1, int(round(1*s))))
+
+            # Ícones
             page.insert_image(
                 fitz.Rect(x_icones, y_icones, x_icones + qr_w, y_icones + qr_h),
                 filename=qr_path
             )
-
-            # Brasão 35x50
             page.insert_image(
                 fitz.Rect(x_icones + qr_w + gap_pt, y_icones,
-                          x_icones + qr_w + gap_pt + brasao_w, y_icones + brasao_h),
+                        x_icones + qr_w + gap_pt + brasao_w, y_icones + brasao_h),
                 filename=brasao_path
             )
 
-            # Texto logo abaixo
-            inicio_y_texto = y_icones + max(qr_h, brasao_h) + 8
-            font_size_normal = 9
-            font_size_status = 13
-            espaco_entre_linhas = 12
+            # Texto (logo abaixo dos ícones)
+            inicio_y_texto = y_icones + max(qr_h, brasao_h) + int(round(8 * s))
 
             for linha in linhas:
                 if not linha.strip():
-                    inicio_y_texto += 5
+                    inicio_y_texto += int(round(5 * s))
                     continue
+
                 if status and linha.strip() == status.strip():
                     largura_status = fitz.get_text_length(linha, fontname="helv", fontsize=font_size_status)
                     x_central = ponto_x + (ponto_w - largura_status) / 2
                     page.insert_text((x_central, inicio_y_texto), linha,
-                                     fontsize=font_size_status, fontname="helv", color=(0, 0, 0))
-                    inicio_y_texto += font_size_status - 4
+                                    fontsize=font_size_status, fontname="helv", color=(0, 0, 0))
+                    inicio_y_texto += font_size_status - int(round(4 * s))
                     continue
 
-                espacamento_extra = 6 if linha.startswith("em:") or linha.startswith("Setor:") else 0
-                for sub in textwrap.wrap(linha, width=40):
+                # wrap dinâmico baseado na largura disponível e no tamanho de fonte
+                chars_por_linha = max(20, int((ponto_w - 16) / (font_size_normal * 0.6)))
+                for sub in textwrap.wrap(linha, width=chars_por_linha):
                     largura_sub = fitz.get_text_length(sub, fontname="helv", fontsize=font_size_normal)
                     x_sub = ponto_x + (ponto_w - largura_sub) / 2
                     page.insert_text((x_sub, inicio_y_texto), sub,
-                                     fontsize=font_size_normal, fontname="helv", color=(0, 0, 0))
+                                    fontsize=font_size_normal, fontname="helv", color=(0, 0, 0))
                     inicio_y_texto += espaco_entre_linhas
-                inicio_y_texto += espacamento_extra
+
+                if linha.startswith("em:") or linha.startswith("Setor:"):
+                    inicio_y_texto += int(round(6 * s))
+
 
             # Salva
             doc.save(caminho_assinado)
@@ -465,44 +478,53 @@ def assinar():
 
 
 # ---------- Verificação por CRC ----------
+import re  # <-- garanta que isso esteja importado no topo do arquivo
+
 @app.route("/verificar", methods=["GET", "POST"])
+@app.route("/verificar/crc", methods=["GET", "POST"], endpoint="verificar_crc")
 def verificar():
     caminho = None
     erro = None
     canonical_sha256 = None
     match = None  # True/False/None
 
-    # Identifica o arquivo oficial pelo CRC
-    crc = (request.values.get("crc") or "").strip()  # GET ou POST
-    if crc:
-        pasta = 'static/arquivos/assinados'
+    # 1) Normaliza e valida o CRC (opcional)
+    crc = (request.values.get("crc") or "").strip().lower()
+    if crc and not re.fullmatch(r"[0-9a-f]{8,64}", crc):  # ajuste o range conforme seu CRC (ex.: {10})
+        erro = "CRC inválido. Use apenas caracteres hexadecimais."
+        crc = ""
+
+    # 2) Localiza o arquivo oficial pelo CRC
+    if crc and not erro:
+        pasta = os.path.join(app.root_path, 'static', 'arquivos', 'assinados')
         try:
             for nome in os.listdir(pasta):
                 if f"_{crc}" in nome:
-                    caminho = f"/{pasta}/{nome}"
+                    abs_path = os.path.join(pasta, nome)
+                    caminho = url_for('static', filename=f'arquivos/assinados/{nome}')
+                    canonical_sha256 = sha256_of_file(abs_path)
                     break
             if not caminho:
                 erro = "Documento não encontrado para o CRC fornecido."
         except FileNotFoundError:
             erro = "Nenhum documento assinado foi encontrado."
 
-    # Se localizou o oficial, calcula hash dele
-    if caminho and not erro:
-        abs_path = os.path.join(app.root_path, caminho.lstrip('/'))
-        canonical_sha256 = sha256_of_file(abs_path)
-
-    if request.method == "POST" and not erro:
+    # 3) Se for POST (comparação) e já temos o hash oficial
+    if request.method == "POST" and not erro and canonical_sha256:
         if not validate_csrf_from_form():
             erro = "❌ CSRF inválido. Recarregue a página."
         else:
             arquivo = request.files.get("arquivo")
-            if arquivo and canonical_sha256:
+            if not arquivo:
+                erro = "Nenhum arquivo enviado para comparar."
+            else:
                 data = arquivo.read()
                 user_sha256 = hashlib.sha256(data).hexdigest()
                 match = (user_sha256 == canonical_sha256)
 
+    # 4) Renderiza o template
     return render_template(
-        'verificar.html',
+        'verificar_crc.html',
         caminho=caminho,
         erro=erro,
         canonical_sha256=canonical_sha256,

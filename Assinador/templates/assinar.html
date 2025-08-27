@@ -315,12 +315,15 @@ function safeContainerWidth(el){
   }
 
   function placeStamp(el, cw, ch){
-    const w = Math.max(160, Math.round(cw * 0.28));
-    const h = Math.max( 90, Math.round(ch * 0.16));
-    const x = Math.max(8, cw - w - 16);
-    const y = Math.max(8, ch - h - 16);
-    setRect(el, x, y, w, h);
-  }
+  const menor = Math.min(cw, ch);
+  const size = Math.round(menor * 0.20);  // 20% do lado menor (ajuste se quiser)
+  const x = Math.max(8, cw - size - 16);
+  const y = Math.max(8, ch - size - 16);
+  setRect(el, x, y, size, size);
+}
+
+
+
   function setRect(el, x, y, w, h){
     el.style.left   = x + 'px';
     el.style.top    = y + 'px';
@@ -350,6 +353,32 @@ function safeContainerWidth(el){
     hcw && (hcw.value = String(cw));
     hch && (hch.value = String(ch));
   }
+
+  function rescaleStampOnCanvasResize(){
+  if(!activeSig || !activeCanvas) return;
+  const oldCW = parseFloat(hcw.value || '0');
+  const oldCH = parseFloat(hch.value || '0');
+  const newCW = activeCanvas.width;
+  const newCH = activeCanvas.height;
+  if(!(oldCW>0 && oldCH>0)) return;
+
+  const r = getRect(activeSig);
+  const sx = newCW / oldCW;
+  const sy = newCH / oldCH;
+
+  const nr = clampRect({
+    x: Math.round(r.x * sx),
+    y: Math.round(r.y * sy),
+    w: Math.round(r.w * sx),
+    h: Math.round(r.h * sy)
+  });
+
+  setRect(activeSig, nr.x, nr.y, nr.w, nr.h);
+  push
+  HiddenStamp();
+}
+window.addEventListener('resize', rescaleStampOnCanvasResize);
+
   function pushHiddenStamp(){
     if(!activeSig) return;
     const r = getRect(activeSig);
@@ -373,7 +402,6 @@ function safeContainerWidth(el){
       };
     }
   }
-
 
   // =================== drag FIXO do carimbo ===================
 function enableDragFixed(box, fixedW, fixedH){
@@ -421,7 +449,6 @@ function enableDragFixed(box, fixedW, fixedH){
   window.addEventListener('touchmove', onMove, {passive:false});
   window.addEventListener('touchend', onUp);
 }
-
 
   // =================== render de IMAGEM (FIX DEFINITIVO) ===================
 async function renderImage(file){
@@ -478,7 +505,6 @@ async function renderImage(file){
   img.src = url;
 }
 
-
   // =================== render de PDF ===================
   async function renderPDF(file){
     // mostra apenas o canvas de PDF (a cada página ativamos de novo)
@@ -512,6 +538,22 @@ async function renderImage(file){
 
     URL.revokeObjectURL(url);
   }
+function resnapStampToArea(){
+  if(!activeSig || !activeCanvas) return;
+  const rOld = getRect(activeSig);
+  // reposiciona com nova área, mas mantém o centro aproximado do anterior
+  const cw = activeCanvas.width, ch = activeCanvas.height;
+  placeStamp(activeSig, cw, ch);
+  const rNew = getRect(activeSig);
+  // opcional: recentra próximo da posição antiga
+  setRect(activeSig,
+    Math.min(Math.max(rOld.x, 0), cw - rNew.w),
+    Math.min(Math.max(rOld.y, 0), ch - rNew.h),
+    rNew.w, rNew.h
+  );
+  pushHiddenStamp();
+}
+window.addEventListener('resize', resnapStampToArea);
 
 // coloque estas duas variáveis globais com as demais:
 let renderToken = 0;
@@ -545,10 +587,14 @@ async function renderPDFPage(n){
   // dimensiona o canvas pelo viewport (sem CSS forçando height)
   pdfCanvas.width  = Math.round(viewport.width);
   pdfCanvas.height = Math.round(viewport.height);
-  pdfCanvas.style.width  = pdfCanvas.width  + 'px';
-  pdfCanvas.style.height = pdfCanvas.height + 'px';
+  // Aplique com !important para vencer CSS teimoso
+  pdfCanvas.style.setProperty('width',  pdfCanvas.width  + 'px', 'important');
+  pdfCanvas.style.setProperty('height', pdfCanvas.height + 'px', 'important');
 
-  const ctx = pdfCanvas.getContext('2d');
+  // Stage do mesmo tamanho do canvas
+  stage.style.setProperty('width',  pdfCanvas.width  + 'px', 'important');
+  stage.style.setProperty('height', pdfCanvas.height + 'px', 'important');
+    const ctx = pdfCanvas.getContext('2d');
   ctx.setTransform(1,0,0,1,0,0);
   ctx.clearRect(0,0,pdfCanvas.width,pdfCanvas.height);
 
@@ -575,25 +621,32 @@ async function renderPDFPage(n){
   // se outro render começou no meio, não continue
   if (myToken !== renderToken) return;
 
-  // ativa UI
+    // ATIVAR UI
   setActive(pdfCanvas, sigPdf);
-  forceShowCanvas(pdfCanvas);
 
-  sigPdf.style.display = 'block';
+  // calc dimensões do canvas
+  const cw = pdfCanvas.width, ch = pdfCanvas.height;
+
+  // esconde para evitar flicker e posiciona
+  sigPdf.style.display = 'none';  // esconde para evitar flicker
   placeStamp(sigPdf, pdfCanvas.width, pdfCanvas.height);
-  enableDragFixed(sigPdf, 300, 305);
 
-  hpage && (hpage.value = String(n));
-  currentPage = n;
-  pushHiddenStamp();
+  const rPdf = getRect(sigPdf);
+
+  requestAnimationFrame(() => {
+    enableDragFixed(sigPdf, Math.round(rPdf.w), Math.round(rPdf.w)); // quadrado
+    sigPdf.style.display = 'block';      // mostra
+    sigPdf.style.visibility = 'visible';
+    sigPdf.style.opacity = '1';
+    pushHiddenStamp();
+  });
+
+
   btnPrev.onclick = async () => { if (currentPage > 1){ currentPage--; pageInput.value = currentPage; await renderPDFPage(currentPage); } };
   btnNext.onclick = async () => { if (currentPage < pdfDoc.numPages){ currentPage++; pageInput.value = currentPage; await renderPDFPage(currentPage); } };
   pageInput.onchange = async () => { let p = parseInt(pageInput.value||'1',10); p = Math.max(1, Math.min(pdfDoc.numPages, p)); currentPage = p; await renderPDFPage(currentPage); };
 
 }
-
-
-
 
   // centralizar
   btnCenterH && (btnCenterH.onclick = function(){
@@ -612,7 +665,7 @@ async function renderPDFPage(n){
   });
 
   // mantém canvas_w/h coerentes em resize (não re-renderiza)
-  window.addEventListener('resize', ()=> { pushHiddenCanvasSize(); });
+  window.addEventListener('resize', ()=> { rescaleStampOnCanvasResize(); });
 
     const fileInput = document.querySelector('input[name="arquivo"]');
     if (fileInput && !fileInput.dataset.bound) {

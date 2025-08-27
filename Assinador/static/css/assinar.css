@@ -6,20 +6,26 @@
   --shadow:0 1px 2px rgba(0,0,0,.06), 0 6px 24px rgba(0,0,0,.06);
 }
 
-/* RESET para evitar flip de PDF */
+/* Garante 1:1 entre tamanho CSS e tamanho interno do canvas */
+#stage canvas {
+  position: relative;
+  z-index: 1;
+  width: auto !important;
+  height: auto !important;
+  max-width: none !important;
+  max-height: none !important;
+}
+
+#stage { display: inline-block; position: relative;}
+#canvasContainer { overflow: auto !important; }
+
+
+/* Evita qualquer transformação que distorça */
 #canvasContainer, #stage, #pdfCanvas {
   transform: none !important;
   rotate: 0deg !important;
   scale: 1 !important;
   transform-origin: top left !important;
-}
-
-
-/* Canvas SEM forçar height via CSS (deixe o JS controlar) */
-#stage canvas{
-  display:block;
-  max-width:100%;
-  /* height:auto;  <-- REMOVA esta linha */
 }
 
 /* Header */
@@ -45,10 +51,6 @@
 .resultado-assinado{display: flex;flex-direction: row;gap: 7px; justify-content: space-between;}
 .resultado-assinado-2{display: flex;flex-direction: row;gap: 7px; justify-content: space-between;}
 
-/* O retângulo é absoluto em relação ao #stage */
-#stage{position: relative;display: block;width: 100% !important;height: auto !important;margin: 0 auto;z-index: 5;}
-
-
 
 #canvasContainer.filled #stage{margin: 0 auto;}
 
@@ -56,19 +58,23 @@
 .retangulo{
   position:absolute;
   padding:6px 10px;
-  display:flex;
+  display:block;
   flex-direction:column;
   align-items:center;
   justify-content:center;
   gap:3px;
-
-  /* visual */
+  opacity: 1;
+  visibility: visible;
+  box-sizing: border-box;     /* padding conta dentro do width/height */
+  overflow: hidden; 
+  z-index: 9999;  
   background:#ffffff;
   border:1px dashed #aaaaaab9;          /* borda tracejada cinza */
   box-shadow: 0px 2px 18px 0px rgba(0, 119, 255, 0.801);    /* “halo” laranja externo */
   user-select:none;
   -webkit-user-drag:none;
   cursor:grab;
+  box-sizing: border-box;
 }
 
 .retangulo:active{ cursor:grabbing; }
@@ -150,9 +156,9 @@
   #canvasContainer.filled{padding:0 !important;min-height:0 !important;max-height:none !important;}
   .center-bar .btn{display:flex;flex-wrap: wrap; font-size:.95rem;padding:.45rem .65rem;width: 100%;max-width: 500px; justify-content: center;}
   .flex-wrap{display:flex;flex-wrap: wrap; font-size:.95rem;width: 100%;max-width: 500px; justify-content: space-between; }
-  .app-header{display:block;align-items:center;justify-content:center;width:100%;margin-top:1.5rem;margin-bottom:.5rem;}
+  .app-header{display:block;align-items:center;justify-content:center;margin-top:1.5rem;margin-bottom:.5rem;}
   .app-title{display:flex;align-items:center;gap:.5rem;font-weight:700;color:var(--brand);font-size:clamp(1.2rem,2.2vw,1.6rem)}
-  .text-end,.text-end-1{display:flex;width:100%;justify-content:space-between;align-items:center}
+  .text-end,.text-end-1{display:flex;justify-content:space-between;align-items:center}
   .text-end-1{justify-content:space-between}
   .usuario{margin-right:.75rem;font-size:clamp(.95rem,1.6vw,1rem)}
   #pdfControls{display:flex;justify-content: center;flex-direction: column;align-items: center;}
