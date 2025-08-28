@@ -121,29 +121,25 @@
 
       <div class="mb-3">
         <label class="form-label">Nome do Órgão:</label>
-        <select class="form-select" name="orgao" aria-label="Selecione o órgão">
-          <option selected>Escolha o Orgão/Secretaria</option>
-          <option value="Secretaria Municipal de Informação e Tecnologia - SEMIT">Secretaria Municipal de Informação e Tecnologia - SEMIT</option>
-          <option value="Secretaria Municipal de Administração - SEMAD">Secretaria Municipal de Administração - SEMAD</option>
-          <option value="Secretaria Municipal da Saúde - SEMUS">Secretaria Municipal da Saúde - SEMUS</option>
+        <select class="form-select" required name="orgao" aria-label="Selecione o órgão">
+          <option value="" selected disabled required>Escolha o Orgão/Secretaria</option>
+          <option value="SEMIT">Secretaria Municipal de Informação e Tecnologia - SEMIT</option>
+          <option value="SEMAD">Secretaria Municipal de Administração - SEMAD</option>
+          <option value="SEMUS">Secretaria Municipal da Saúde - SEMUS</option>
         </select>
       </div>
 
       <div class="mb-3">
-        <label class="form-label">Setor:</label>
-        <input name="setor" type="text" class="form-control">
+        <label class="form-label">Matrícula:</label>
+        <input name="matricula" required type="text" class="form-control">
       </div>
 
       <div class="mb-3">
-        <label class="form-label">Status:</label>
-        <input name="status" required type="text" value="Projeto Aprovado" class="form-control">
+        <label class="form-label">Cargo:</label>
+        <input name="cargo" required type="text" class="form-control">
       </div>
 
-      <div class="mb-3">
-        <label class="form-label">Número do Processo:</label>
-        <input name="processo" required type="text" class="form-control">
-      </div>
-
+  
       <!-- Campos ocultos -->
       <input id="x" name="x" type="hidden"/>
       <input id="y" name="y" type="hidden"/>
@@ -167,10 +163,10 @@
     <div id="resultado-section" class="card shadow-sm p-2 mt-4">
       <div class="card-body">
         <div class="resultado-assinado">
-          <a class="btn btn-primary" href="{{ signed_url }}" target="_blank" rel="noopener">👁️ Visualizar no navegador</a>
+          <a class="btn btn-primary" href="{{ signed_url }}" target="_blank" rel="noopener"> Visualizar no navegador</a>
           <div class="resultado-assinado-2 ">
-            <a class="btn btn-success px-5" href="{{ url_for('download', filename=arquivo) }}"> ⬇ Baixar arquivo</a>
-            <a class="btn btn-secondary px-5" href="{{ url_for('assinar') }}">✍️ Assinar outro</a>
+            <a class="btn btn-success px-5" href="{{ url_for('download', filename=arquivo) }}"> Baixar arquivo</a>
+            <a class="btn btn-secondary px-5" href="{{ url_for('assinar') }}"> Assinar outro</a>
           </div>
           
         </div>
@@ -403,7 +399,7 @@ window.addEventListener('resize', rescaleStampOnCanvasResize);
     }
   }
 
-  // =================== drag FIXO do carimbo ===================
+  // ====== drag FIXO do carimbo ===================
 function enableDragFixed(box, fixedW, fixedH){
   if (box.dataset.bound === '1') return; 
   box.dataset.bound = '1';

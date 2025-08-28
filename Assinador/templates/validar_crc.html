@@ -1,0 +1,94 @@
+<!DOCTYPE html>
+<html lang="pt-br" data-theme="light">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Verificação por CRC</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet" />
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/verificar.css') }}">
+</head>
+<body class="container py-4">
+  <div class="page-header d-flex flex-wrap align-items-center gap-2 mb-4">
+    <a href="{{ url_for('verificar') }}" class="btn btn-outline-secondary btn-sm">
+      &#8592; <span class="d-none d-sm-inline">Voltar</span>
+    </a>
+    <div class="vr d-none d-sm-flex"></div>
+    <h1 class="h4 mb-0 fw-semibold">Verificação de Documento por CRC</h1>
+  </div>
+
+  {% if erro %}
+    <div class="alert alert-danger">{{ erro }}</div>
+  {% endif %}
+
+  <div class="card mb-4">
+    <div class="card-body">
+      <form method="GET" class="row g-3 align-items-center" action="{{ url_for('validar_crc') }}">
+        <div class="col-12 col-md-auto">
+          <label for="crc" class="col-form-label fw-bold">Código CRC:</label>
+        </div>
+        <div class="col-12 col-md-8">
+          <input type="text" id="crc" name="crc" class="form-control"
+                 placeholder="ex.: a1b2c3d4e5" value="{{ crc or '' }}" required>
+        </div>
+        <div class="col-12 col-md-auto">
+          <button class="btn btn-primary w-100" type="submit">Buscar</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  {% if caminho %}
+    <div class="card mb-3">
+      <div class="card-header fw-semibold">Cópia oficial localizada</div>
+      <div class="card-body">
+        <div class="mb-3">
+          <a class="btn btn-outline-primary" href="{{ caminho }}" target="_blank" rel="noopener">Abrir no navegador</a>
+        </div>
+
+        <!-- Preview inline -->
+        <div class="ratio ratio-4x3 mb-3">
+          <iframe src="{{ caminho }}" title="Cópia oficial" style="border:1px solid #e5e7eb;"></iframe>
+        </div>
+        <!-- SHA-256
+        {% if canonical_sha256 %}
+          <p class="text-muted mb-0">
+            SHA-256 (cópia oficial): <code>{{ canonical_sha256 }}</code>
+          </p>
+        {% endif %}-->
+      </div>
+    </div>
+
+    <!-- Comparar upload com a oficial encontrada 
+    <div class="card">
+      <div class="card-header fw-semibold">Comparar minha cópia (upload)</div>
+      <div class="card-body">
+        <form method="POST" enctype="multipart/form-data" class="row g-2 align-items-center" action="{{ url_for('validar_crc') }}">
+          <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+          <input type="hidden" name="acao" value="comparar">
+          <input type="hidden" name="crc"  value="{{ crc or '' }}">
+          <div class="col-12 col-md-8">
+            <input type="file" name="arquivo" class="form-control" required>
+          </div>
+          <div class="col-12 col-md-auto">
+            <button class="btn btn-success w-100" type="submit">Comparar com a oficial</button>
+          </div>
+        </form>-->
+
+        {% if match is not none %}
+          {% if match %}
+            <div class="alert alert-success mt-3 mb-0 text-center">✔ Arquivo íntegro: idêntico à cópia oficial.</div>
+          {% else %}
+            <div class="alert alert-danger mt-3 mb-0 text-center">✖ Arquivo ALTERADO: não coincide com a cópia oficial.</div>
+          {% endif %}
+        {% endif %}
+      </div>
+    </div>
+  {% else %}
+    {% if not erro %}
+      <p class="text-muted mt-3 text-center">Informe o CRC acima para exibir a cópia oficial e, se desejar, comparar um arquivo.</p>
+    {% endif %}
+  {% endif %}
+
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+</body>
+</html>

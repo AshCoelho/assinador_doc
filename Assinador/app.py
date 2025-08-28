@@ -213,9 +213,9 @@ def assinar():
 
     # Campos extras
     orgao = request.form.get('orgao', '')
-    setor = request.form.get('setor', '')
+    matricula = request.form.get('matricula', '')
     status = request.form.get('status', '')
-    processo = request.form.get('processo', '')
+    cargo = request.form.get('cargo', '')
 
     # Coordenadas e canvas (o front envia relativas ao canvas real)
     def _float(val, default=0.0):
@@ -263,16 +263,23 @@ def assinar():
     qr_img.save(qr_path, format="PNG")
     brasao_path = "static/brasao/brasao.png"
 
-    # Texto do carimbo
+    try:
+        from zoneinfo import ZoneInfo
+        _agora = datetime.now(ZoneInfo("America/Fortaleza"))
+    except Exception:
+        _agora = datetime.now()
+
+    _datahora = _agora.strftime('%d/%m/%Y %H:%M')
+
     linhas = [
         "Assinado digitalmente por",
-        f"{nome} ({cpf_masked})",
-        f"em: {datetime.now().strftime('%d/%m/%Y %H:%M')}",
+        f"{nome}",
+        f"{cpf_masked}",
+        (f"Matrícula: {matricula}" if matricula else ""),  # mantém ordem mesmo se vazio
+        (f"{cargo}" if cargo else ""),
         orgao if orgao else "",
-        f"Setor: {setor}" if setor else "",
-        status,
-        f"Processo: {processo}",
-        f"CRC: {crc}"
+        f"em: {_datahora}",
+        f"CRC: {crc}",
     ]
 
     try:
@@ -331,7 +338,7 @@ def assinar():
 
             #  Moldura debug 
             #page.draw_rect(fitz.Rect(ponto_x, ponto_y, ponto_x + ponto_w, ponto_y + ponto_h),
-             #              color=(1, 0, 0), width=max(1, int(round(1*s))))
+            #              color=(1, 0, 0), width=max(1, int(round(1*s))))
 
             # Ícones
             page.insert_image(
@@ -369,8 +376,9 @@ def assinar():
                                     fontsize=font_size_normal, fontname="helv", color=(0, 0, 0))
                     inicio_y_texto += espaco_entre_linhas
 
-                if linha.startswith("em:") or linha.startswith("Setor:"):
+                if linha.startswith("Data/Hora:") or linha.startswith("Matrícula:"):
                     inicio_y_texto += int(round(6 * s))
+
 
 
             # Salva
@@ -477,60 +485,155 @@ def assinar():
         return render_template("assinar.html", nome=nome, cpf=cpf_masked, erro=f"❌ Erro ao assinar: {e}")
 
 
-# ---------- Verificação por CRC ----------
-import re  # <-- garanta que isso esteja importado no topo do arquivo
+# ---------- Imports/Utils ----------
+import os, re, hashlib
+from flask import request, render_template, url_for, redirect
 
-@app.route("/verificar", methods=["GET", "POST"])
-@app.route("/verificar/crc", methods=["GET", "POST"], endpoint="verificar_crc")
-def verificar():
-    caminho = None
+def sha256_of_file(path: str) -> str:
+    h = hashlib.sha256()
+    with open(path, 'rb') as f:
+        for chunk in iter(lambda: f.read(8192), b''):
+            h.update(chunk)
+    return h.hexdigest()
+
+def _validate_csrf_safe() -> bool:
+    """Usa sua validate_csrf_from_form() se existir; senão, assume True."""
+    try:
+        return validate_csrf_from_form()
+    except Exception:
+        return True
+
+ASSINADOS_DIRNAME = os.path.join('static', 'arquivos', 'assinados')
+
+def _assinados_abs_dir():
+    return os.path.join(app.root_path, ASSINADOS_DIRNAME)
+
+
+# ---------- Menu (verificar.html) ----------
+@app.route("/verificar", methods=["GET"], endpoint="verificar")
+def verificar_menu():
+    return render_template("verificar.html")
+
+
+# ---------- Validar por CRC (validar_crc.html) ----------
+@app.route("/verificar/crc", methods=["GET", "POST"], endpoint="validar_crc")
+def validar_crc():
+    pasta = _assinados_abs_dir()
     erro = None
+    caminho = None
     canonical_sha256 = None
-    match = None  # True/False/None
+    match = None
+    user_sha256 = None
 
-    # 1) Normaliza e valida o CRC (opcional)
+    # CRC vindo por GET (e também no POST quando for comparar)
     crc = (request.values.get("crc") or "").strip().lower()
-    if crc and not re.fullmatch(r"[0-9a-f]{8,64}", crc):  # ajuste o range conforme seu CRC (ex.: {10})
-        erro = "CRC inválido. Use apenas caracteres hexadecimais."
-        crc = ""
 
-    # 2) Localiza o arquivo oficial pelo CRC
-    if crc and not erro:
-        pasta = os.path.join(app.root_path, 'static', 'arquivos', 'assinados')
-        try:
-            for nome in os.listdir(pasta):
-                if f"_{crc}" in nome:
-                    abs_path = os.path.join(pasta, nome)
-                    caminho = url_for('static', filename=f'arquivos/assinados/{nome}')
-                    canonical_sha256 = sha256_of_file(abs_path)
-                    break
-            if not caminho:
-                erro = "Documento não encontrado para o CRC fornecido."
-        except FileNotFoundError:
-            erro = "Nenhum documento assinado foi encontrado."
+    # GET: buscar a cópia oficial
+    if request.method == "GET":
+        if crc:
+            # validação simples (ajuste o range se seu CRC tiver tamanho fixo)
+            if not re.fullmatch(r"[0-9a-f]{8,64}", crc):
+                erro = "CRC inválido. Use apenas caracteres hexadecimais."
+            else:
+                try:
+                    for nome in os.listdir(pasta):
+                        if f"_{crc}" in nome:
+                            abs_path = os.path.join(pasta, nome)
+                            caminho = url_for('static', filename=f'arquivos/assinados/{nome}')
+                            canonical_sha256 = sha256_of_file(abs_path)
+                            break
+                    if not caminho:
+                        erro = "Documento não encontrado para o CRC fornecido."
+                except FileNotFoundError:
+                    erro = "Nenhum documento assinado foi encontrado."
 
-    # 3) Se for POST (comparação) e já temos o hash oficial
-    if request.method == "POST" and not erro and canonical_sha256:
-        if not validate_csrf_from_form():
+    # POST: comparar upload com a oficial já encontrada
+    if request.method == "POST":
+        if not _validate_csrf_safe():
             erro = "❌ CSRF inválido. Recarregue a página."
         else:
-            arquivo = request.files.get("arquivo")
-            if not arquivo:
-                erro = "Nenhum arquivo enviado para comparar."
+            # Recarrega dados da oficial, a partir do CRC informado
+            if not crc or not re.fullmatch(r"[0-9a-f]{8,64}", crc):
+                erro = "CRC inválido. Use apenas caracteres hexadecimais."
             else:
-                data = arquivo.read()
-                user_sha256 = hashlib.sha256(data).hexdigest()
-                match = (user_sha256 == canonical_sha256)
+                try:
+                    for nome in os.listdir(pasta):
+                        if f"_{crc}" in nome:
+                            abs_path = os.path.join(pasta, nome)
+                            caminho = url_for('static', filename=f'arquivos/assinados/{nome}')
+                            canonical_sha256 = sha256_of_file(abs_path)
+                            break
+                    if not caminho:
+                        erro = "Documento não encontrado para o CRC fornecido."
+                except FileNotFoundError:
+                    erro = "Nenhum documento assinado foi encontrado."
 
-    # 4) Renderiza o template
+            # Se já temos a oficial, compara
+            if not erro and canonical_sha256:
+                up = request.files.get("arquivo")
+                if not up:
+                    erro = "Nenhum arquivo enviado para comparar."
+                else:
+                    data = up.read()
+                    user_sha256 = hashlib.sha256(data).hexdigest()
+                    match = (user_sha256 == canonical_sha256)
+
     return render_template(
-        'verificar_crc.html',
+        "validar_crc.html",
+        crc=crc,
         caminho=caminho,
-        erro=erro,
         canonical_sha256=canonical_sha256,
         match=match,
-        crc=crc
+        user_sha256=user_sha256,
+        erro=erro
     )
+
+
+# ---------- Validar por Upload (validar_upload.html) ----------
+@app.route("/verificar/upload", methods=["GET", "POST"], endpoint="validar_upload")
+def validar_upload():
+    pasta = _assinados_abs_dir()
+    erro = None
+    caminho = None
+    canonical_sha256 = None
+    match = None
+    user_sha256 = None
+
+    if request.method == "POST":
+        if not _validate_csrf_safe():
+            erro = "❌ CSRF inválido. Recarregue a página."
+        else:
+            up = request.files.get("arquivo")
+            if not up:
+                erro = "Nenhum arquivo enviado."
+            else:
+                data = up.read()
+                user_sha256 = hashlib.sha256(data).hexdigest()
+
+                # Procura algum oficial com o mesmo SHA-256
+                try:
+                    for nome in os.listdir(pasta):
+                        abs_path = os.path.join(pasta, nome)
+                        sha = sha256_of_file(abs_path)
+                        if sha == user_sha256:
+                            match = True
+                            canonical_sha256 = sha
+                            caminho = url_for('static', filename=f'arquivos/assinados/{nome}')
+                            break
+                    if match is None:
+                        match = False
+                except FileNotFoundError:
+                    erro = "Nenhum documento assinado foi encontrado."
+
+    return render_template(
+        "validar_upload.html",
+        caminho=caminho,
+        canonical_sha256=canonical_sha256,
+        match=match,
+        user_sha256=user_sha256,
+        erro=erro
+    )
+
 
 
 # ---------- Download seguro ----------

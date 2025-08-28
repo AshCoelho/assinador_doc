@@ -19,7 +19,6 @@
 #stage { display: inline-block; position: relative;}
 #canvasContainer { overflow: auto !important; }
 
-
 /* Evita qualquer transformação que distorça */
 #canvasContainer, #stage, #pdfCanvas {
   transform: none !important;
