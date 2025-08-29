@@ -7,6 +7,7 @@ from flask import (
     Flask, render_template, request, redirect, url_for, send_file,
     abort, flash, session
 )
+from urllib.parse import unquote
 from werkzeug.utils import secure_filename
 import qrcode
 from qrcode.constants import ERROR_CORRECT_Q, ERROR_CORRECT_H
@@ -15,6 +16,7 @@ import fitz  # PyMuPDF
 import re
 # ORM
 from models import db, User
+from auth import normalize_cpf as auth_normalize_cpf, is_valid_cpf_digits, _hash as hash_pwd
 
 # Importa segurança
 from auth import (
@@ -130,64 +132,151 @@ def home():
     return redirect(url_for("auth.login"))
 
 
-# ---------- CADASTRO (somente admin) ----------
+
+def normalize_cpf(s: str) -> str:
+    return re.sub(r"\D", "", s or "")
+
+def mascarar_cpf(cpf11: str) -> str:
+    c = normalize_cpf(cpf11)
+    if len(c) == 11:
+        return f"{c[:3]}.{c[3:6]}.{c[6:9]}-{c[9:]}"
+    return c
+
+def hash_cpf(cpf11: str) -> str:
+    # Use um SALT fixo no .env para que o hash seja determinístico (permite checar duplicidade)
+    salt = os.environ.get("CPF_HASH_SALT", "troque-este-salt")
+    c = normalize_cpf(cpf11)
+    return hashlib.sha256((salt + c).encode("utf-8")).hexdigest()
+
 @app.route("/cadastro", methods=["GET", "POST"])
 @admin_required
 def cadastro():
-    if request.method == "GET":
-        email_edit = (request.args.get("email") or "").strip().lower()
-        usuario_editar = User.query.filter_by(email=email_edit).first() if email_edit else None
-        usuarios = [u.to_dict() for u in User.query.order_by(User.nome.asc()).all()]
-        return render_template(
-            "cadastro.html",
-            usuarios=usuarios,
-            usuario_editar=usuario_editar.to_dict() if usuario_editar else None
-        )
+    if request.method == "POST":
+        if not validate_csrf_from_form():
+            flash("CSRF inválido.", "danger")
+            return redirect(url_for("cadastro"))
 
-    # POST
-    if not validate_csrf_from_form():
-        flash("Sessão expirada ou solicitação inválida (CSRF).", "danger")
+        nome         = (request.form.get("nome") or "").strip()
+        email        = (request.form.get("email") or "").strip().lower()
+        setor        = (request.form.get("setor") or "").strip()
+        orgao        = (request.form.get("orgao") or "").strip()
+        matricula    = (request.form.get("matricula") or "").strip()
+        cargo        = (request.form.get("cargo") or "").strip()
+        editar_email = (request.form.get("editar_email") or "").strip().lower()
+
+        # flag se o admin clicou "Alterar CPF"
+        cpf_change   = (request.form.get("cpf_change") == "1")
+        cpf_norm     = normalize_cpf(request.form.get("cpf"))
+
+        if not nome or not email:
+            flash("Preencha nome e e-mail.", "danger")
+            return redirect(url_for("cadastro"))
+
+        # ---------- EDIÇÃO ----------
+        if editar_email:
+            u = User.query.filter_by(email=editar_email).first()
+            if not u:
+                flash("Usuário a editar não encontrado.", "danger")
+                return redirect(url_for("cadastro"))
+
+            if email != editar_email and User.query.filter_by(email=email).first():
+                flash("E-mail já cadastrado.", "warning")
+                return redirect(url_for("cadastro"))
+
+            # Se pediu para alterar CPF, valida e re-hasheia
+            if cpf_change:
+                if not is_valid_cpf_digits(cpf_norm):
+                    flash("CPF inválido (11 dígitos).", "danger")
+                    return redirect(url_for("cadastro"))
+                cpf_masked = f"{cpf_norm[:3]}.{cpf_norm[3:6]}.{cpf_norm[6:9]}-{cpf_norm[9:]}"
+                cpf_hash_v = hash_pwd(cpf_norm)
+
+                # (Opcional) Se você tiver uma coluna cpf_fp para unicidade determinística:
+                # cpf_fp = hashlib.sha256(cpf_norm.encode("utf-8")).hexdigest()
+                # if User.query.filter_by(cpf_fp=cpf_fp).first() and u.cpf_fp != cpf_fp:
+                #     flash("CPF já cadastrado.", "warning"); return redirect(url_for("cadastro"))
+                # u.cpf_fp = cpf_fp
+
+                u.cpf_hash   = cpf_hash_v
+                u.cpf_masked = cpf_masked
+
+            u.nome       = nome
+            u.email      = email
+            u.setor      = setor
+            u.orgao      = orgao
+            u.matricula  = matricula
+            u.cargo      = cargo
+            db.session.commit()
+            flash("Usuário atualizado.", "success")
+            return redirect(url_for("cadastro"))
+
+        # ---------- CRIAÇÃO ----------
+        if User.query.filter_by(email=email).first():
+            flash("E-mail já cadastrado.", "warning")
+            return redirect(url_for("cadastro"))
+
+        # Na criação, CPF é obrigatório
+        if not is_valid_cpf_digits(cpf_norm):
+            flash("CPF inválido (11 dígitos).", "danger")
+            return redirect(url_for("cadastro"))
+
+        cpf_masked = f"{cpf_norm[:3]}.{cpf_norm[3:6]}.{cpf_norm[6:9]}-{cpf_norm[9:]}"
+        cpf_hash_v = hash_pwd(cpf_norm)
+
+        # (Opcional) checagem de duplicidade por fingerprint determinística
+        # cpf_fp = hashlib.sha256(cpf_norm.encode("utf-8")).hexdigest()
+        # if User.query.filter_by(cpf_fp=cpf_fp).first():
+        #     flash("CPF já cadastrado.", "warning")
+        #     return redirect(url_for("cadastro"))
+
+        u = User(
+            nome=nome,
+            email=email,
+            cpf_hash=cpf_hash_v,
+            cpf_masked=cpf_masked,
+            orgao=orgao,
+            setor=setor,
+            matricula=matricula,
+            cargo=cargo,
+            # cpf_fp=cpf_fp,  # se usar a coluna opcional
+        )
+        db.session.add(u)
+        db.session.commit()
+        flash("Usuário cadastrado.", "success")
         return redirect(url_for("cadastro"))
 
-    nome = (request.form.get("nome") or "").strip()
-    email = (request.form.get("email") or "").strip().lower()
-    cpf = (request.form.get("cpf") or "").strip()
-    editar_email = (request.form.get("editar_email") or "").strip().lower()
 
-    try:
-        if editar_email and editar_email != email:
-            register_user(nome=nome, email=email, cpf=cpf, is_admin=False)
-            antigo = User.query.filter_by(email=editar_email).first()
-            if antigo:
-                db.session.delete(antigo)
-                db.session.commit()
-            flash("Usuário atualizado com sucesso.", "success")
-        else:
-            register_user(nome=nome, email=email, cpf=cpf, is_admin=False)
-            flash("Usuário salvo com sucesso.", "success")
-    except ValueError as e:
-        flash(str(e), "danger")
-
-    return redirect(url_for("cadastro"))
+    # GET
+    email_q = (request.args.get("email") or "").strip().lower()
+    usuario_editar = User.query.filter_by(email=email_q).first() if email_q else None
+    usuarios = User.query.order_by(User.created_at.desc()).all()
+    return render_template("cadastro.html", usuarios=usuarios, usuario_editar=usuario_editar)
 
 
-@app.route("/editar/<path:email>", methods=["GET"])
+@app.get("/editar/<path:email>")
 @admin_required
 def editar(email):
-    return redirect(url_for("cadastro", email=email))
+    return redirect(url_for("cadastro", email=unquote(email).strip().lower()))
 
 
-@app.route("/excluir/<path:email>", methods=["GET"])
+
+
+@app.post("/usuarios/excluir")
+
 @admin_required
-def excluir(email):
-    u = User.query.filter_by(email=(email or "").strip().lower()).first()
-    if u:
-        db.session.delete(u)
-        db.session.commit()
-        flash("Usuário excluído.", "info")
-    else:
-        flash("Usuário não encontrado.", "warning")
+def excluir():
+    if not validate_csrf_from_form():
+        abort(400, description="CSRF inválido")
+    email = (request.form.get("email") or "").strip().lower()
+    if not email:
+        flash("E-mail inválido.", "danger"); return redirect(url_for("cadastro"))
+    u = User.query.filter(User.email.ilike(email)).first()
+    if not u:
+        flash("Usuário não encontrado.", "warning"); return redirect(url_for("cadastro"))
+    db.session.delete(u); db.session.commit()
+    flash("Usuário excluído com sucesso.", "success")
     return redirect(url_for("cadastro"))
+
 
 
 # ---------- ASSINAR DOCUMENTO (somente logado) ----------
@@ -197,26 +286,25 @@ def assinar():
     usr = session.get("user") or {}
     nome = usr.get("nome") or "Desconhecido"
     cpf_masked = usr.get("cpf") or "***********"
-
+    orgao = usr.get("orgao") or "Deve aparecer o orgao"
+    
     if request.method == "GET":
-        return render_template("assinar.html", nome=nome, cpf=cpf_masked)
+        return render_template("assinar.html", nome=nome, cpf=cpf_masked, orgao=orgao)
 
-    # POST
     if not validate_csrf_from_form():
-        return render_template("assinar.html", nome=nome, cpf=cpf_masked, erro="❌ CSRF inválido. Recarregue a página.")
+        return render_template("assinar.html", nome=nome, cpf=cpf_masked, orgao=orgao, erro="❌ CSRF inválido. Recarregue a página.")
 
     if 'arquivo' not in request.files:
-        return render_template("assinar.html", nome=nome, cpf=cpf_masked, erro="❌ Nenhum arquivo enviado.")
+        return render_template("assinar.html", nome=nome, cpf=cpf_masked, orgao=orgao, erro="❌ Nenhum arquivo enviado.")
     arquivo = request.files['arquivo']
     if not arquivo or arquivo.filename.strip() == '':
-        return render_template("assinar.html", nome=nome, cpf=cpf_masked, erro="❌ Arquivo inválido.")
+        return render_template("assinar.html", nome=nome, cpf=cpf_masked, orgao=orgao, erro="❌ Arquivo inválido.")
 
     # Campos extras
-    orgao = request.form.get('orgao', '')
-    matricula = request.form.get('matricula', '')
-    status = request.form.get('status', '')
-    cargo = request.form.get('cargo', '')
-
+    matricula = (request.form.get('matricula') or '').strip()
+    status = (request.form.get('status', '') or '').strip()
+    cargo = (request.form.get('cargo', '') or '').strip()
+    processo = (request.form['processo'] or '').strip()
     # Coordenadas e canvas (o front envia relativas ao canvas real)
     def _float(val, default=0.0):
         try:
@@ -276,8 +364,9 @@ def assinar():
         f"{nome}",
         f"{cpf_masked}",
         (f"Matrícula: {matricula}" if matricula else ""),  # mantém ordem mesmo se vazio
-        (f"{cargo}" if cargo else ""),
-        orgao if orgao else "",
+        f"{orgao}", 
+        (status or ""),
+        f"Processo: {processo}",
         f"em: {_datahora}",
         f"CRC: {crc}",
     ]
@@ -392,7 +481,7 @@ def assinar():
 
             signed_url = f"/static/arquivos/assinados/{nome_final}"
             return render_template(
-                "assinar.html", nome=nome, cpf=cpf_masked,
+                "assinar.html", nome=nome, cpf=cpf_masked, orgao=orgao,
                 show_result=True, is_pdf=True, signed_url=signed_url, arquivo=nome_final,
                 sha256_hex=sha256_hex
             )
@@ -465,7 +554,7 @@ def assinar():
 
             signed_url = f"/static/arquivos/assinados/{nome_final}"
             return render_template(
-                "assinar.html", nome=nome, cpf=cpf_masked,
+                "assinar.html", nome=nome, cpf=cpf_masked, orgao=orgao,
                 show_result=True, is_pdf=False, signed_url=signed_url, arquivo=nome_final,
                 sha256_hex=sha256_hex
             )
@@ -473,7 +562,7 @@ def assinar():
         else:
             if os.path.exists(qr_path):
                 os.remove(qr_path)
-            return render_template("assinar.html", nome=nome, cpf=cpf_masked,
+            return render_template("assinar.html", nome=nome, cpf=cpf_masked, orgao=orgao,
                                    erro="❌ Formato não suportado. Envie PDF/JPG/PNG.")
 
     except Exception as e:
@@ -482,12 +571,7 @@ def assinar():
                 os.remove(qr_path)
         except Exception:
             pass
-        return render_template("assinar.html", nome=nome, cpf=cpf_masked, erro=f"❌ Erro ao assinar: {e}")
-
-
-# ---------- Imports/Utils ----------
-import os, re, hashlib
-from flask import request, render_template, url_for, redirect
+        return render_template("assinar.html", nome=nome, cpf=cpf_masked, orgao=orgao, erro=f"❌ Erro ao assinar: {e}")
 
 def sha256_of_file(path: str) -> str:
     h = hashlib.sha256()

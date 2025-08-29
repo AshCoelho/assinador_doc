@@ -116,30 +116,15 @@
           Centralizar Vertical
         </button>
       </div>
-
-      
-
       <div class="mb-3">
-        <label class="form-label">Nome do Órgão:</label>
-        <select class="form-select" required name="orgao" aria-label="Selecione o órgão">
-          <option value="" selected disabled required>Escolha o Orgão/Secretaria</option>
-          <option value="SEMIT">Secretaria Municipal de Informação e Tecnologia - SEMIT</option>
-          <option value="SEMAD">Secretaria Municipal de Administração - SEMAD</option>
-          <option value="SEMUS">Secretaria Municipal da Saúde - SEMUS</option>
-        </select>
+        <label class="form-label">Status:</label>
+        <input name="status" required type="text" class="form-control" value="Projeto Aprovado"/>
+      </div>
+      <div class="mb-3">
+        <label class="form-label">N° do Processo:</label>
+        <input name="processo" required type="text" class="form-control">
       </div>
 
-      <div class="mb-3">
-        <label class="form-label">Matrícula:</label>
-        <input name="matricula" required type="text" class="form-control">
-      </div>
-
-      <div class="mb-3">
-        <label class="form-label">Cargo:</label>
-        <input name="cargo" required type="text" class="form-control">
-      </div>
-
-  
       <!-- Campos ocultos -->
       <input id="x" name="x" type="hidden"/>
       <input id="y" name="y" type="hidden"/>

@@ -151,6 +151,9 @@ def login():
         "cpf": u.cpf_masked,
         "is_admin": bool(u.is_admin),
         "login_at": datetime.utcnow().isoformat() + "Z",
+        "orgao": u.orgao,      # <— ESSENCIAL
+        "cargo": u.cargo,      # opcional (útil pro carimbo)
+        "matricula": u.matricula  # opcional (útil pro carimbo)
     }
     
 
