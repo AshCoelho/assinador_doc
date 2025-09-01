@@ -1,0 +1,57 @@
+version: "3.9"
+services:
+  web:
+    build: .
+    container_name: assinador_web
+    ports:
+      - "5000:5000"
+    environment:
+      - DATABASE_URL=postgresql+psycopg://postgres:postgres@db:5432/assinador
+      - SECRET_KEY=S3m1t!@#
+    depends_on:
+      db:
+        condition: service_healthy
+    volumes:
+      - .:/app
+    networks:
+    - mynetwork
+
+  db:
+    image: postgres:15
+    container_name: assinador_db
+    restart: always
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: assinador
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d assinador"]
+      interval: 5s
+      retries: 5
+      timeout: 5s
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./init.sql:/docker-entrypoint-initdb.d/init.sql
+    networks:
+    - mynetwork
+
+  pgadmin:
+    image: dpage/pgadmin4
+    container_name: pgadmin
+    restart: always
+    ports:
+      - "8080:80"
+    environment:
+      PGADMIN_DEFAULT_EMAIL: admin@admin.com
+      PGADMIN_DEFAULT_PASSWORD: admin
+    networks:
+      - mynetwork
+
+volumes:
+  postgres_data:
+
+networks:
+  mynetwork:
+    driver: bridge
