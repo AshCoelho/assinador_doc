@@ -2,7 +2,7 @@
 -- PostgreSQL database dump
 --
 
-\restrict CPhO4PC5WTd3By2opsQgfU9V94Jz8ATgpLm0h8ruVEhOE7u1RVrwAhEx83l0HWk
+\restrict SGX0F6sKbomN11nTbELKnNmjXELGU2qsT8cEmxyT5TXG6GDdrLlZwvLzhR6xPP6
 
 -- Dumped from database version 15.14 (Debian 15.14-1.pgdg13+1)
 -- Dumped by pg_dump version 15.14 (Debian 15.14-1.pgdg13+1)
@@ -92,7 +92,7 @@ ALTER TABLE ONLY public.users ALTER COLUMN id SET DEFAULT nextval('public.users_
 --
 
 COPY public.users (id, email, nome, cpf_hash, cpf_masked, orgao, setor, matricula, cargo, is_admin, created_at, updated_at) FROM stdin;
-1	admin@gmail.com	Administrador	999999999	999999999	\N	\N	\N	\N	t	2025-09-01 11:22:55.834249+00	2025-09-01 11:22:55.834249+00
+2	admin@teste.com	Administrador	pbkdf2:sha256:1000000$heIVWUZTLPYVmG7c$712d9117dea2f2f27c35ebb03599fa5ccc9dfac03c2f8127a3465ef37469e3a4	123.456.789-01	\N	\N	\N	\N	t	2025-09-01 11:46:48.6154+00	2025-09-01 11:46:48.6154+00
 \.
 
 
@@ -100,7 +100,7 @@ COPY public.users (id, email, nome, cpf_hash, cpf_masked, orgao, setor, matricul
 -- Name: users_id_seq; Type: SEQUENCE SET; Schema: public; Owner: postgres
 --
 
-SELECT pg_catalog.setval('public.users_id_seq', 1, false);
+SELECT pg_catalog.setval('public.users_id_seq', 2, true);
 
 
 --
@@ -122,5 +122,5 @@ CREATE UNIQUE INDEX ix_users_email ON public.users USING btree (email);
 -- PostgreSQL database dump complete
 --
 
-\unrestrict CPhO4PC5WTd3By2opsQgfU9V94Jz8ATgpLm0h8ruVEhOE7u1RVrwAhEx83l0HWk
+\unrestrict SGX0F6sKbomN11nTbELKnNmjXELGU2qsT8cEmxyT5TXG6GDdrLlZwvLzhR6xPP6
 
